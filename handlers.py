@@ -113,8 +113,17 @@ def handle_search(args: str):
     return create_search_result_message(query, results)
 
 
-def handle_roster(args: str):
-    """處理 /名冊 指令"""
+def handle_roster(line_user_id: str, args: str):
+    """處理 /名冊 指令（僅限管理員）"""
+    if not db.is_admin(line_user_id):
+        return create_error_message(
+            "此指令僅限幹部使用",
+            quick_actions=[
+                {'label': '我的資料', 'text': '/我是誰'},
+                {'label': '查看說明', 'text': '/說明'}
+            ]
+        )
+
     show_all = False
     page = 1
 
@@ -294,7 +303,7 @@ def process_command(line_user_id: str, line_display_name: str, text: str):
     elif command == '/查詢':
         return handle_search(args)
     elif command == '/名冊':
-        return handle_roster(args)
+        return handle_roster(line_user_id, args)
     elif command == '/刪除':
         return handle_delete(line_user_id, args)
     elif command == '/設定管理員':

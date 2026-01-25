@@ -126,10 +126,10 @@ def create_menu_message() -> FlexMessage:
                             "height": "sm",
                             "action": {
                                 "type": "message",
-                                "label": "📋 名冊",
+                                "label": "📋 名冊 🔒",
                                 "text": "/名冊"
                             },
-                            "color": "#5B82DB"
+                            "color": "#DB5B5B"
                         }
                     ]
                 },
@@ -637,8 +637,6 @@ def create_help_message() -> FlexMessage:
                         {"type": "text", "text": "  修改遊戲名稱", "size": "xs", "color": "#888888"},
                         {"type": "text", "text": "/查詢 [名稱]", "size": "sm", "color": "#333333", "margin": "sm"},
                         {"type": "text", "text": "  搜尋成員", "size": "xs", "color": "#888888"},
-                        {"type": "text", "text": "/名冊", "size": "sm", "color": "#333333", "margin": "sm"},
-                        {"type": "text", "text": "  顯示所有成員", "size": "xs", "color": "#888888"},
                         {"type": "text", "text": "/我是誰", "size": "sm", "color": "#333333", "margin": "sm"},
                         {"type": "text", "text": "  查看自己的資料", "size": "xs", "color": "#888888"}
                     ]
@@ -649,7 +647,7 @@ def create_help_message() -> FlexMessage:
                 },
                 {
                     "type": "text",
-                    "text": "【管理員指令】",
+                    "text": "【幹部指令】",
                     "weight": "bold",
                     "size": "sm",
                     "color": "#DB5B5B",
@@ -660,10 +658,12 @@ def create_help_message() -> FlexMessage:
                     "layout": "vertical",
                     "spacing": "xs",
                     "contents": [
-                        {"type": "text", "text": "/刪除 [名稱]", "size": "sm", "color": "#333333"},
+                        {"type": "text", "text": "/名冊", "size": "sm", "color": "#333333"},
+                        {"type": "text", "text": "  顯示所有成員", "size": "xs", "color": "#888888"},
+                        {"type": "text", "text": "/刪除 [名稱]", "size": "sm", "color": "#333333", "margin": "sm"},
                         {"type": "text", "text": "  刪除成員資料", "size": "xs", "color": "#888888"},
                         {"type": "text", "text": "/設定管理員 [遊戲名稱]", "size": "sm", "color": "#333333", "margin": "sm"},
-                        {"type": "text", "text": "  新增管理員", "size": "xs", "color": "#888888"}
+                        {"type": "text", "text": "  新增幹部", "size": "xs", "color": "#888888"}
                     ]
                 }
             ]
