@@ -314,9 +314,10 @@ def get_admin_count() -> int:
         return cursor.fetchone()['count']
 
 
-def register_by_admin(line_display_name: str, game_name: str, set_as_admin: bool = False) -> dict:
+def register_by_admin(line_display_name: str, game_name: str = None, set_as_admin: bool = False) -> dict:
     """
     管理員代為登記成員（透過 LINE 名稱）
+    game_name 為 None 時，使用 LINE 名稱作為遊戲名稱
     回傳: {'success': bool, 'message': str}
     """
     with get_db_cursor() as cursor:
@@ -342,38 +343,59 @@ def register_by_admin(line_display_name: str, game_name: str, set_as_admin: bool
                 'message': f"找不到「{line_display_name}」\n請確認該用戶已在群組中發過訊息"
             }
 
+        # 如果沒有提供遊戲名稱，使用 LINE 名稱
+        actual_game_name = game_name if game_name else pending_user['line_display_name']
+
         # 檢查是否已登記
         cursor.execute(
             'SELECT * FROM members WHERE line_user_id = %s',
             (pending_user['line_user_id'],)
         )
-        if cursor.fetchone():
-            return {
-                'success': False,
-                'message': f"「{pending_user['line_display_name']}」已經登記過了"
-            }
+        existing_member = cursor.fetchone()
+
+        if existing_member:
+            # 已登記，如果是要設為幹部就直接更新
+            if set_as_admin:
+                if existing_member['is_admin']:
+                    return {
+                        'success': False,
+                        'message': f"「{pending_user['line_display_name']}」已經是幹部了"
+                    }
+                cursor.execute('''
+                    UPDATE members SET is_admin = TRUE, updated_at = NOW()
+                    WHERE line_user_id = %s
+                ''', (pending_user['line_user_id'],))
+                return {
+                    'success': True,
+                    'message': f"已將「{pending_user['line_display_name']}」設為幹部\n遊戲名稱：{existing_member['game_name']}"
+                }
+            else:
+                return {
+                    'success': False,
+                    'message': f"「{pending_user['line_display_name']}」已經登記過了\n遊戲名稱：{existing_member['game_name']}"
+                }
 
         # 檢查遊戲名稱是否被使用
         cursor.execute(
             'SELECT * FROM members WHERE game_name = %s',
-            (game_name,)
+            (actual_game_name,)
         )
         if cursor.fetchone():
             return {
                 'success': False,
-                'message': f"遊戲名稱「{game_name}」已被其他人使用"
+                'message': f"遊戲名稱「{actual_game_name}」已被其他人使用"
             }
 
         # 新增成員
         cursor.execute('''
             INSERT INTO members (line_user_id, line_display_name, game_name, is_admin)
             VALUES (%s, %s, %s, %s)
-        ''', (pending_user['line_user_id'], pending_user['line_display_name'], game_name, set_as_admin))
+        ''', (pending_user['line_user_id'], pending_user['line_display_name'], actual_game_name, set_as_admin))
 
         admin_text = "（已設為幹部）" if set_as_admin else ""
         return {
             'success': True,
-            'message': f"已為「{pending_user['line_display_name']}」登記{admin_text}\n遊戲名稱：{game_name}"
+            'message': f"已為「{pending_user['line_display_name']}」登記{admin_text}\n遊戲名稱：{actual_game_name}"
         }
 
 
