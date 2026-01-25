@@ -280,3 +280,26 @@ def get_admin_count() -> int:
     with get_db_cursor() as cursor:
         cursor.execute('SELECT COUNT(*) as count FROM members WHERE is_admin = TRUE')
         return cursor.fetchone()['count']
+
+
+def sync_display_name(line_user_id: str, current_display_name: str) -> bool:
+    """
+    同步 LINE 顯示名稱（如果有變更則更新）
+    回傳: 是否有更新
+    """
+    with get_db_cursor() as cursor:
+        cursor.execute(
+            'SELECT line_display_name FROM members WHERE line_user_id = %s',
+            (line_user_id,)
+        )
+        member = cursor.fetchone()
+
+        if member and member['line_display_name'] != current_display_name:
+            cursor.execute('''
+                UPDATE members
+                SET line_display_name = %s, updated_at = NOW()
+                WHERE line_user_id = %s
+            ''', (current_display_name, line_user_id))
+            return True
+
+        return False
