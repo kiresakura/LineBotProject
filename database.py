@@ -239,27 +239,45 @@ def is_admin(line_user_id: str) -> bool:
 
 def set_admin(query: str) -> dict:
     """
-    設定管理員（透過遊戲名稱）
+    設定管理員（透過遊戲名稱或 LINE 名稱）
     回傳: {'success': bool, 'message': str}
     """
     with get_db_cursor() as cursor:
-        # 尋找成員
+        # 先用遊戲名稱精確搜尋
         cursor.execute(
             'SELECT * FROM members WHERE game_name = %s',
             (query,)
         )
         member = cursor.fetchone()
 
+        # 如果找不到，用 LINE 名稱精確搜尋
+        if not member:
+            cursor.execute(
+                'SELECT * FROM members WHERE line_display_name = %s',
+                (query,)
+            )
+            member = cursor.fetchone()
+
+        # 如果還是找不到，用模糊搜尋
+        if not member:
+            cursor.execute(
+                '''SELECT * FROM members
+                   WHERE game_name ILIKE %s OR line_display_name ILIKE %s
+                   LIMIT 1''',
+                (f'%{query}%', f'%{query}%')
+            )
+            member = cursor.fetchone()
+
         if not member:
             return {
                 'success': False,
-                'message': f"找不到遊戲名稱為「{query}」的成員"
+                'message': f"找不到「{query}」的成員"
             }
 
         if member['is_admin']:
             return {
                 'success': False,
-                'message': f"「{member['game_name']}」已經是管理員了"
+                'message': f"「{member['line_display_name']}」已經是幹部了"
             }
 
         # 設定為管理員
@@ -271,7 +289,7 @@ def set_admin(query: str) -> dict:
 
         return {
             'success': True,
-            'message': f"已將「{member['game_name']}」設為管理員"
+            'message': f"已將「{member['line_display_name']}」設為幹部\n遊戲名稱：{member['game_name']}"
         }
 
 

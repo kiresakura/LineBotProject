@@ -239,17 +239,17 @@ def handle_set_admin(line_user_id: str, args: str):
     if not args:
         return create_input_prompt_message(
             command="設定管理員",
-            prompt="請輸入要設為管理員的成員遊戲名稱",
-            examples=["/設定管理員 勇者123"]
+            prompt="請輸入要設為幹部的成員名稱\n可使用 LINE 名稱或遊戲名稱",
+            examples=["/設定管理員 小明", "/設定管理員 勇者123"]
         )
 
-    game_name = args.strip()
-    result = db.set_admin(game_name)
+    query = args.strip()
+    result = db.set_admin(query)
 
     if result['success']:
         return create_success_message(
             title="設定成功",
-            content=f"「{game_name}」已成為管理員",
+            content=result['message'],
             quick_actions=[
                 {'label': '查看名冊', 'text': '/名冊'}
             ]
