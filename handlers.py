@@ -1,114 +1,207 @@
+"""
+指令處理模組
+回傳 LINE Message 物件（支援 Flex Message 和 Quick Reply）
+"""
+
 import database as db
+from messages import (
+    create_menu_message,
+    create_roster_message,
+    create_search_result_message,
+    create_profile_message,
+    create_help_message,
+    create_success_message,
+    create_error_message,
+    create_input_prompt_message,
+    create_quick_reply
+)
+from linebot.v3.messaging import TextMessage
 
 
-def handle_register(line_user_id: str, line_display_name: str, args: str) -> str:
+def handle_register(line_user_id: str, line_display_name: str, args: str):
     """處理 /登記 指令"""
     if not args:
-        return "❌ 請輸入遊戲名稱\n格式：/登記 [遊戲名稱]"
+        return create_input_prompt_message(
+            command="登記",
+            prompt="請輸入你的遊戲角色名稱",
+            examples=["/登記 光之勇者", "/登記 夜影刺客"]
+        )
 
     game_name = args.strip()
     if len(game_name) > 100:
-        return "❌ 遊戲名稱過長（最多 100 字）"
+        return create_error_message(
+            "遊戲名稱過長（最多 100 字）",
+            quick_actions=[
+                {'label': '重新登記', 'text': '/登記'},
+                {'label': '查看說明', 'text': '/說明'}
+            ]
+        )
 
     result = db.register_member(line_user_id, line_display_name, game_name)
 
     if result['success']:
-        return f"✅ {result['message']}"
+        return create_success_message(
+            title="登記成功！",
+            content=f"LINE 名稱：{line_display_name}\n遊戲名稱：{game_name}",
+            quick_actions=[
+                {'label': '查看名冊', 'text': '/名冊'},
+                {'label': '我的資料', 'text': '/我是誰'}
+            ]
+        )
     else:
-        return f"❌ {result['message']}"
+        return create_error_message(
+            result['message'],
+            quick_actions=[
+                {'label': '修改名稱', 'text': '/修改'},
+                {'label': '我的資料', 'text': '/我是誰'}
+            ]
+        )
 
 
-def handle_update(line_user_id: str, args: str) -> str:
+def handle_update(line_user_id: str, args: str):
     """處理 /修改 指令"""
     if not args:
-        return "❌ 請輸入新的遊戲名稱\n格式：/修改 [新遊戲名稱]"
+        return create_input_prompt_message(
+            command="修改",
+            prompt="請輸入新的遊戲角色名稱",
+            examples=["/修改 暗黑騎士", "/修改 風之旅人"]
+        )
 
     new_game_name = args.strip()
     if len(new_game_name) > 100:
-        return "❌ 遊戲名稱過長（最多 100 字）"
+        return create_error_message(
+            "遊戲名稱過長（最多 100 字）",
+            quick_actions=[
+                {'label': '重新修改', 'text': '/修改'},
+                {'label': '我的資料', 'text': '/我是誰'}
+            ]
+        )
 
     result = db.update_game_name(line_user_id, new_game_name)
 
     if result['success']:
-        return f"✅ {result['message']}"
+        return create_success_message(
+            title="修改成功！",
+            content=result['message'].replace("修改成功！\n", ""),
+            quick_actions=[
+                {'label': '查看名冊', 'text': '/名冊'},
+                {'label': '我的資料', 'text': '/我是誰'}
+            ]
+        )
     else:
-        return f"❌ {result['message']}"
+        return create_error_message(
+            result['message'],
+            quick_actions=[
+                {'label': '立即登記', 'text': '/登記'},
+                {'label': '查看說明', 'text': '/說明'}
+            ]
+        )
 
 
-def handle_search(args: str) -> str:
+def handle_search(args: str):
     """處理 /查詢 指令"""
     if not args:
-        return "❌ 請輸入要查詢的名稱\n格式：/查詢 [LINE名稱或遊戲名稱]"
+        return create_input_prompt_message(
+            command="查詢",
+            prompt="請輸入要搜尋的名稱\n可使用 LINE 名稱或遊戲名稱",
+            examples=["/查詢 小明", "/查詢 勇者"]
+        )
 
     query = args.strip()
     results = db.search_member(query)
 
-    if not results:
-        return f"📋 查無「{query}」的相關結果"
-
-    lines = [f"📋 查詢「{query}」的結果：", ""]
-    for member in results:
-        lines.append(f"• {member['line_display_name']} ↔ {member['game_name']}")
-
-    return "\n".join(lines)
+    return create_search_result_message(query, results)
 
 
-def handle_roster(args: str) -> str:
+def handle_roster(args: str):
     """處理 /名冊 指令"""
+    show_all = False
     page = 1
+
     if args:
-        try:
-            page = int(args.strip())
-        except ValueError:
-            pass
+        args = args.strip()
+        if args in ['全部', '所有', 'all']:
+            show_all = True
+        else:
+            try:
+                page = int(args)
+            except ValueError:
+                pass
 
-    data = db.get_all_members(page=page)
+    if show_all:
+        # 取得所有成員
+        data = db.get_all_members(page=1, per_page=999999)
+        return create_roster_message(
+            members=data['members'],
+            page=1,
+            total_pages=1,
+            total=data['total'],
+            show_all=True
+        )
+    else:
+        data = db.get_all_members(page=page)
+        return create_roster_message(
+            members=data['members'],
+            page=data['page'],
+            total_pages=data['total_pages'],
+            total=data['total'],
+            show_all=False
+        )
 
-    if data['total'] == 0:
-        return "📋 目前沒有任何登記資料"
 
-    lines = [f"📋 成員名冊 (第 {data['page']}/{data['total_pages']} 頁，共 {data['total']} 人)", ""]
-
-    start_num = (data['page'] - 1) * 20 + 1
-    for i, member in enumerate(data['members'], start=start_num):
-        lines.append(f"{i}. {member['line_display_name']} ↔ {member['game_name']}")
-
-    if data['total_pages'] > 1:
-        lines.append("")
-        lines.append(f"輸入 /名冊 [頁數] 查看其他頁")
-
-    return "\n".join(lines)
-
-
-def handle_delete(line_user_id: str, args: str) -> str:
+def handle_delete(line_user_id: str, args: str):
     """處理 /刪除 指令（僅限管理員）"""
     if not db.is_admin(line_user_id):
-        return "❌ 此指令僅限管理員使用"
+        return create_error_message(
+            "此指令僅限管理員使用",
+            quick_actions=[
+                {'label': '查看說明', 'text': '/說明'},
+                {'label': '查看名冊', 'text': '/名冊'}
+            ]
+        )
 
     if not args:
-        return "❌ 請輸入要刪除的成員名稱\n格式：/刪除 [遊戲名稱或LINE名稱]"
+        return create_input_prompt_message(
+            command="刪除成員",
+            prompt="請輸入要刪除的成員名稱\n可使用 LINE 名稱或遊戲名稱",
+            examples=["/刪除 小明", "/刪除 勇者123"]
+        )
 
     query = args.strip()
     result = db.delete_member(query)
 
     if result['success']:
-        return f"✅ {result['message']}"
+        return create_success_message(
+            title="刪除成功",
+            content=result['message'].replace("已刪除成員\n", ""),
+            quick_actions=[
+                {'label': '查看名冊', 'text': '/名冊'}
+            ]
+        )
     else:
-        return f"❌ {result['message']}"
+        return create_error_message(
+            result['message'],
+            quick_actions=[
+                {'label': '查看名冊', 'text': '/名冊'},
+                {'label': '搜尋成員', 'text': '/查詢'}
+            ]
+        )
 
 
-def handle_set_admin(line_user_id: str, args: str) -> str:
+def handle_set_admin(line_user_id: str, args: str):
     """處理 /設定管理員 指令（僅限管理員）"""
-    # 檢查是否有管理員存在，如果沒有則第一個使用此指令的人成為管理員
     admin_count = db.get_admin_count()
 
     if admin_count == 0:
-        # 沒有管理員，需要先自己登記才能成為管理員
         member = db.get_member_by_user_id(line_user_id)
         if not member:
-            return "❌ 請先使用 /登記 [遊戲名稱] 登記後，再使用此指令成為第一位管理員"
+            return create_error_message(
+                "請先登記後，再使用此指令成為第一位管理員",
+                quick_actions=[
+                    {'label': '立即登記', 'text': '/登記'}
+                ]
+            )
 
-        # 將自己設為管理員
         from database import get_db_cursor
         with get_db_cursor() as cursor:
             cursor.execute('''
@@ -117,67 +210,71 @@ def handle_set_admin(line_user_id: str, args: str) -> str:
                 WHERE line_user_id = %s
             ''', (line_user_id,))
 
-        return f"✅ 你已成為第一位管理員！\n現在可以使用 /設定管理員 [遊戲名稱] 來新增其他管理員"
+        return create_success_message(
+            title="你已成為第一位管理員！",
+            content="現在可以使用管理員指令了",
+            quick_actions=[
+                {'label': '查看名冊', 'text': '/名冊'},
+                {'label': '查看說明', 'text': '/說明'}
+            ]
+        )
 
-    # 已有管理員，檢查權限
     if not db.is_admin(line_user_id):
-        return "❌ 此指令僅限管理員使用"
+        return create_error_message(
+            "此指令僅限管理員使用",
+            quick_actions=[
+                {'label': '查看說明', 'text': '/說明'}
+            ]
+        )
 
     if not args:
-        return "❌ 請輸入要設定為管理員的遊戲名稱\n格式：/設定管理員 [遊戲名稱]"
+        return create_input_prompt_message(
+            command="設定管理員",
+            prompt="請輸入要設為管理員的成員遊戲名稱",
+            examples=["/設定管理員 勇者123"]
+        )
 
     game_name = args.strip()
     result = db.set_admin(game_name)
 
     if result['success']:
-        return f"✅ {result['message']}"
+        return create_success_message(
+            title="設定成功",
+            content=f"「{game_name}」已成為管理員",
+            quick_actions=[
+                {'label': '查看名冊', 'text': '/名冊'}
+            ]
+        )
     else:
-        return f"❌ {result['message']}"
+        return create_error_message(
+            result['message'],
+            quick_actions=[
+                {'label': '查看名冊', 'text': '/名冊'},
+                {'label': '搜尋成員', 'text': '/查詢'}
+            ]
+        )
 
 
-def handle_whoami(line_user_id: str, line_display_name: str) -> str:
+def handle_whoami(line_user_id: str, line_display_name: str):
     """處理 /我是誰 指令"""
     member = db.get_member_by_user_id(line_user_id)
-
-    if not member:
-        return f"📋 你尚未登記\nLINE 名稱：{line_display_name}\n\n請使用 /登記 [遊戲名稱] 進行登記"
-
-    admin_text = "（管理員）" if member['is_admin'] else ""
-
-    return f"📋 你的登記資訊 {admin_text}\nLINE 名稱：{member['line_display_name']}\n遊戲名稱：{member['game_name']}"
+    return create_profile_message(member, line_display_name, member is not None)
 
 
-def handle_help() -> str:
+def handle_help():
     """處理 /說明 或 /help 指令"""
-    return """📋 指令說明
-
-/登記 [遊戲名稱]
-  綁定你的 LINE 與遊戲角色名稱
-
-/修改 [新遊戲名稱]
-  修改你的遊戲名稱
-
-/查詢 [名稱]
-  搜尋成員（可用 LINE 或遊戲名稱）
-
-/名冊
-  顯示所有已登記成員
-
-/我是誰
-  查看自己的登記資訊
-
-/說明
-  顯示此說明訊息
-
-【管理員指令】
-/刪除 [名稱] - 刪除成員
-/設定管理員 [遊戲名稱] - 新增管理員"""
+    return create_help_message()
 
 
-def process_command(line_user_id: str, line_display_name: str, text: str) -> str:
+def handle_menu():
+    """處理 /選單 或 /menu 指令"""
+    return create_menu_message()
+
+
+def process_command(line_user_id: str, line_display_name: str, text: str):
     """
     處理使用者指令
-    回傳: 回覆訊息，如果不是指令則回傳 None
+    回傳: LINE Message 物件，如果不是指令則回傳 None
     """
     text = text.strip()
 
@@ -206,5 +303,7 @@ def process_command(line_user_id: str, line_display_name: str, text: str) -> str
         return handle_whoami(line_user_id, line_display_name)
     elif command in ['/說明', '/help', '/幫助']:
         return handle_help()
+    elif command in ['/選單', '/menu', '/功能']:
+        return handle_menu()
     else:
-        return None  # 未知指令不回覆
+        return None

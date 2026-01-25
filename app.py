@@ -65,15 +65,15 @@ def handle_message(event: MessageEvent):
     display_name = get_user_display_name(user_id, event.source)
 
     # 處理指令
-    reply = process_command(user_id, display_name, text)
+    reply_message = process_command(user_id, display_name, text)
 
-    if reply:
+    if reply_message:
         with ApiClient(configuration) as api_client:
             line_bot_api = MessagingApi(api_client)
             line_bot_api.reply_message(
                 ReplyMessageRequest(
                     reply_token=event.reply_token,
-                    messages=[TextMessage(text=reply)]
+                    messages=[reply_message]
                 )
             )
 
