@@ -270,6 +270,58 @@ def handle_whoami(line_user_id: str, line_display_name: str):
     return create_profile_message(member, line_display_name, member is not None)
 
 
+def handle_register_for(line_user_id: str, args: str):
+    """處理 /代登記 指令（僅限管理員）"""
+    if not db.is_admin(line_user_id):
+        return create_error_message(
+            "此指令僅限幹部使用",
+            quick_actions=[
+                {'label': '查看說明', 'text': '/說明'}
+            ]
+        )
+
+    if not args:
+        return create_input_prompt_message(
+            command="代登記",
+            prompt="幫其他成員登記\n格式：/代登記 [LINE名稱] [遊戲名稱]\n\n如需同時設為幹部：\n/代登記 [LINE名稱] [遊戲名稱] 幹部",
+            examples=[
+                "/代登記 小明 勇者123",
+                "/代登記 小明 勇者123 幹部"
+            ]
+        )
+
+    parts = args.strip().split()
+    if len(parts) < 2:
+        return create_error_message(
+            "格式錯誤\n請輸入：/代登記 [LINE名稱] [遊戲名稱]",
+            quick_actions=[
+                {'label': '查看說明', 'text': '/說明'}
+            ]
+        )
+
+    line_name = parts[0]
+    game_name = parts[1]
+    set_as_admin = len(parts) >= 3 and parts[2] in ['幹部', '管理員', 'admin']
+
+    result = db.register_by_admin(line_name, game_name, set_as_admin)
+
+    if result['success']:
+        return create_success_message(
+            title="代登記成功",
+            content=result['message'],
+            quick_actions=[
+                {'label': '查看名冊', 'text': '/名冊'}
+            ]
+        )
+    else:
+        return create_error_message(
+            result['message'],
+            quick_actions=[
+                {'label': '查看名冊', 'text': '/名冊'}
+            ]
+        )
+
+
 def handle_help():
     """處理 /說明 或 /help 指令"""
     return create_help_message()
@@ -308,6 +360,8 @@ def process_command(line_user_id: str, line_display_name: str, text: str):
         return handle_delete(line_user_id, args)
     elif command == '/設定管理員':
         return handle_set_admin(line_user_id, args)
+    elif command == '/代登記':
+        return handle_register_for(line_user_id, args)
     elif command == '/我是誰':
         return handle_whoami(line_user_id, line_display_name)
     elif command in ['/說明', '/help', '/幫助']:

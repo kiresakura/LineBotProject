@@ -28,7 +28,7 @@ def get_db_cursor():
 
 
 def init_db():
-    """初始化資料庫，建立 members 表"""
+    """初始化資料庫，建立 members 表和 pending_users 表"""
     with get_db_cursor() as cursor:
         cursor.execute('''
             CREATE TABLE IF NOT EXISTS members (
@@ -49,6 +49,20 @@ def init_db():
         cursor.execute('''
             CREATE INDEX IF NOT EXISTS idx_members_line_display_name
             ON members (line_display_name)
+        ''')
+
+        # 建立 pending_users 表（記錄發過訊息但未登記的用戶）
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS pending_users (
+                id SERIAL PRIMARY KEY,
+                line_user_id VARCHAR(50) UNIQUE NOT NULL,
+                line_display_name VARCHAR(100),
+                last_seen TIMESTAMP DEFAULT NOW()
+            )
+        ''')
+        cursor.execute('''
+            CREATE INDEX IF NOT EXISTS idx_pending_users_display_name
+            ON pending_users (line_display_name)
         ''')
     print("資料庫初始化完成")
 
@@ -298,6 +312,82 @@ def get_admin_count() -> int:
     with get_db_cursor() as cursor:
         cursor.execute('SELECT COUNT(*) as count FROM members WHERE is_admin = TRUE')
         return cursor.fetchone()['count']
+
+
+def register_by_admin(line_display_name: str, game_name: str, set_as_admin: bool = False) -> dict:
+    """
+    管理員代為登記成員（透過 LINE 名稱）
+    回傳: {'success': bool, 'message': str}
+    """
+    with get_db_cursor() as cursor:
+        # 從最近發過訊息的用戶中尋找（透過已記錄的 line_display_name）
+        # 先檢查是否有這個 LINE 名稱的未登記用戶記錄
+        cursor.execute(
+            'SELECT * FROM pending_users WHERE line_display_name = %s ORDER BY last_seen DESC LIMIT 1',
+            (line_display_name,)
+        )
+        pending_user = cursor.fetchone()
+
+        if not pending_user:
+            # 模糊搜尋
+            cursor.execute(
+                'SELECT * FROM pending_users WHERE line_display_name ILIKE %s ORDER BY last_seen DESC LIMIT 1',
+                (f'%{line_display_name}%',)
+            )
+            pending_user = cursor.fetchone()
+
+        if not pending_user:
+            return {
+                'success': False,
+                'message': f"找不到「{line_display_name}」\n請確認該用戶已在群組中發過訊息"
+            }
+
+        # 檢查是否已登記
+        cursor.execute(
+            'SELECT * FROM members WHERE line_user_id = %s',
+            (pending_user['line_user_id'],)
+        )
+        if cursor.fetchone():
+            return {
+                'success': False,
+                'message': f"「{pending_user['line_display_name']}」已經登記過了"
+            }
+
+        # 檢查遊戲名稱是否被使用
+        cursor.execute(
+            'SELECT * FROM members WHERE game_name = %s',
+            (game_name,)
+        )
+        if cursor.fetchone():
+            return {
+                'success': False,
+                'message': f"遊戲名稱「{game_name}」已被其他人使用"
+            }
+
+        # 新增成員
+        cursor.execute('''
+            INSERT INTO members (line_user_id, line_display_name, game_name, is_admin)
+            VALUES (%s, %s, %s, %s)
+        ''', (pending_user['line_user_id'], pending_user['line_display_name'], game_name, set_as_admin))
+
+        admin_text = "（已設為幹部）" if set_as_admin else ""
+        return {
+            'success': True,
+            'message': f"已為「{pending_user['line_display_name']}」登記{admin_text}\n遊戲名稱：{game_name}"
+        }
+
+
+def record_pending_user(line_user_id: str, line_display_name: str):
+    """
+    記錄發過訊息但未登記的用戶（供代登記使用）
+    """
+    with get_db_cursor() as cursor:
+        cursor.execute('''
+            INSERT INTO pending_users (line_user_id, line_display_name, last_seen)
+            VALUES (%s, %s, NOW())
+            ON CONFLICT (line_user_id)
+            DO UPDATE SET line_display_name = %s, last_seen = NOW()
+        ''', (line_user_id, line_display_name, line_display_name))
 
 
 def sync_display_name(line_user_id: str, current_display_name: str) -> bool:

@@ -660,9 +660,11 @@ def create_help_message() -> FlexMessage:
                     "contents": [
                         {"type": "text", "text": "/名冊", "size": "sm", "color": "#333333"},
                         {"type": "text", "text": "  顯示所有成員", "size": "xs", "color": "#888888"},
+                        {"type": "text", "text": "/代登記 [LINE名] [遊戲名]", "size": "sm", "color": "#333333", "margin": "sm"},
+                        {"type": "text", "text": "  幫其他成員登記", "size": "xs", "color": "#888888"},
                         {"type": "text", "text": "/刪除 [名稱]", "size": "sm", "color": "#333333", "margin": "sm"},
                         {"type": "text", "text": "  刪除成員資料", "size": "xs", "color": "#888888"},
-                        {"type": "text", "text": "/設定管理員 [遊戲名稱]", "size": "sm", "color": "#333333", "margin": "sm"},
+                        {"type": "text", "text": "/設定管理員 [名稱]", "size": "sm", "color": "#333333", "margin": "sm"},
                         {"type": "text", "text": "  新增幹部", "size": "xs", "color": "#888888"}
                     ]
                 }

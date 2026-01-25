@@ -65,10 +65,12 @@ def handle_message(event: MessageEvent):
     display_name = get_user_display_name(user_id, event.source)
 
     # 自動同步 LINE 顯示名稱（如果用戶已登記且名稱有變更）
+    # 並記錄用戶資訊（供代登記使用）
     try:
         db.sync_display_name(user_id, display_name)
+        db.record_pending_user(user_id, display_name)
     except Exception as e:
-        print(f"同步名稱失敗: {e}")
+        print(f"同步/記錄用戶失敗: {e}")
 
     # 處理指令
     reply_message = process_command(user_id, display_name, text)
