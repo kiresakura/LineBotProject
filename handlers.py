@@ -338,6 +338,25 @@ def handle_register_for(line_user_id: str, args: str):
         )
 
 
+def handle_admin_list():
+    """處理 /幹部 指令"""
+    admins = db.get_all_admins()
+
+    if not admins:
+        return create_error_message(
+            "目前沒有設定任何幹部",
+            quick_actions=[
+                {'label': '查看說明', 'text': '/說明'}
+            ]
+        )
+
+    lines = [f"👑 幹部名單（共 {len(admins)} 人）", ""]
+    for i, admin in enumerate(admins, start=1):
+        lines.append(f"{i}. {admin['line_display_name']} ↔ {admin['game_name']}")
+
+    return TextMessage(text="\n".join(lines))
+
+
 def handle_help():
     """處理 /說明 或 /help 指令"""
     return create_help_message()
@@ -384,5 +403,7 @@ def process_command(line_user_id: str, line_display_name: str, text: str):
         return handle_help()
     elif command in ['/選單', '/menu', '/功能']:
         return handle_menu()
+    elif command in ['/幹部', '/幹部名單']:
+        return handle_admin_list()
     else:
         return None

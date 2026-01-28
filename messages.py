@@ -650,6 +650,8 @@ def create_help_message() -> FlexMessage:
                         {"type": "text", "text": "  修改遊戲名稱", "size": "xs", "color": "#888888"},
                         {"type": "text", "text": "/查詢 [名稱]", "size": "sm", "color": "#333333", "margin": "sm"},
                         {"type": "text", "text": "  搜尋成員", "size": "xs", "color": "#888888"},
+                        {"type": "text", "text": "/幹部", "size": "sm", "color": "#333333", "margin": "sm"},
+                        {"type": "text", "text": "  查看幹部名單", "size": "xs", "color": "#888888"},
                         {"type": "text", "text": "/我是誰", "size": "sm", "color": "#333333", "margin": "sm"},
                         {"type": "text", "text": "  查看自己的資料", "size": "xs", "color": "#888888"}
                     ]

@@ -314,6 +314,18 @@ def get_admin_count() -> int:
         return cursor.fetchone()['count']
 
 
+def get_all_admins() -> list:
+    """取得所有幹部列表"""
+    with get_db_cursor() as cursor:
+        cursor.execute('''
+            SELECT line_display_name, game_name
+            FROM members
+            WHERE is_admin = TRUE
+            ORDER BY id
+        ''')
+        return cursor.fetchall()
+
+
 def register_by_admin(line_display_name: str, game_name: str = None, set_as_admin: bool = False) -> dict:
     """
     管理員代為登記成員（透過 LINE 名稱）
