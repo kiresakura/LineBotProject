@@ -171,6 +171,19 @@ def create_menu_message() -> FlexMessage:
     )
 
 
+def create_roster_text_message(members: list, total: int) -> TextMessage:
+    """建立純文字版名冊（用於顯示全部成員，避免 Flex Message 大小限制）"""
+    if not members:
+        return TextMessage(text="📋 目前沒有任何登記資料")
+
+    lines = [f"📋 成員名冊（全部 {total} 人）", ""]
+
+    for i, member in enumerate(members, start=1):
+        lines.append(f"{i}. {member['line_display_name']} ↔ {member['game_name']}")
+
+    return TextMessage(text="\n".join(lines))
+
+
 def create_roster_message(members: list, page: int, total_pages: int, total: int, show_all: bool = False) -> FlexMessage:
     """建立名冊 Flex Message"""
 

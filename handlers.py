@@ -7,6 +7,7 @@ import database as db
 from messages import (
     create_menu_message,
     create_roster_message,
+    create_roster_text_message,
     create_search_result_message,
     create_profile_message,
     create_help_message,
@@ -138,14 +139,11 @@ def handle_roster(line_user_id: str, args: str):
                 pass
 
     if show_all:
-        # 取得所有成員
+        # 取得所有成員，使用純文字訊息避免 Flex Message 大小限制
         data = db.get_all_members(page=1, per_page=999999)
-        return create_roster_message(
+        return create_roster_text_message(
             members=data['members'],
-            page=1,
-            total_pages=1,
-            total=data['total'],
-            show_all=True
+            total=data['total']
         )
     else:
         data = db.get_all_members(page=page)
