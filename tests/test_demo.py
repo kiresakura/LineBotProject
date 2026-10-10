@@ -50,8 +50,8 @@ def test_replay_group_roster_example(capsys):
     assert '🤖 ✅ 代登記成功' in output
     assert '🤖 ❌ 此指令僅限幹部使用' in output
     assert '🤖 📋 成員名冊 第 1/1 頁，共 3 人' in output
-    assert '   3. 小華 ↔ 夜影刺客' in output
-    assert '   舊遊戲名稱：風之旅人' in output
+    assert '   3. 小華 ↔ 陳小華' in output
+    assert '   舊登記名稱：林阿美' in output
     assert '🤖 👑 幹部名單（共 1 人）' in output
     # 群組裡的一般聊天不會觸發轉真人
     assert '轉真人' not in output

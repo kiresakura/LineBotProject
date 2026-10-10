@@ -138,7 +138,7 @@ See [`.env.example`](.env.example) for the same list with comments.
 
 ## Group roster module
 
-With `ROSTER_ENABLED=true` the original roster commands work in groups and one-on-one chats: `/登記 <name>`, `/修改`, `/查詢`, `/我是誰`, `/幹部`, `/說明`, `/選單`, and for officers `/名冊 [page|全部]`, `/代登記`, `/刪除`, `/設定管理員`. Admins in `ADMIN_USER_IDS` are always officers; when the whitelist is empty, the first registered member who sends `/設定管理員` becomes the first officer. Each deployment keeps one roster (members are not separated by group). The replies still use the wording of the original game-guild version (for example 遊戲名稱 for the registered name).
+With `ROSTER_ENABLED=true` the original roster commands work in groups and one-on-one chats: `/登記 <name>`, `/修改`, `/查詢`, `/我是誰`, `/幹部`, `/說明`, `/選單`, and for officers `/名冊 [page|全部]`, `/代登記`, `/刪除`, `/設定管理員`. Admins in `ADMIN_USER_IDS` are always officers; when the whitelist is empty, the first registered member who sends `/設定管理員` becomes the first officer. Each deployment keeps one roster (members are not separated by group).
 
 ## Architecture
 

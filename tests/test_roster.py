@@ -64,7 +64,7 @@ def test_command_without_args_shows_input_prompt(db):
     reply = process_command('U1', '小明', '/登記')
 
     assert isinstance(reply, FlexMessage)
-    assert reply.alt_text == '請輸入你的遊戲角色名稱'
+    assert reply.alt_text == '請輸入要登記的名稱（例如本名、學號或暱稱）'
 
 
 def test_register_command_replies_with_quick_actions(db):
@@ -79,7 +79,7 @@ def test_register_command_replies_with_quick_actions(db):
 def test_register_command_rejects_overlong_name(db):
     reply = process_command('U1', '小明', '/登記 ' + '長' * 101)
 
-    assert reply.text.startswith('❌ 遊戲名稱過長')
+    assert reply.text.startswith('❌ 登記名稱過長')
     assert db.get_member_by_user_id('U1') is None
 
 

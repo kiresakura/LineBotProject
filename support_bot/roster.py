@@ -51,8 +51,8 @@ def parse_roster_args(args: str):
 def parse_register_for_args(args: str):
     """
     解析 /代登記 的參數
-    回傳: (LINE 名稱, 遊戲名稱或 None, 是否設為幹部)；沒有參數時回傳 None
-    遊戲名稱為 None 時，資料層會改用 LINE 名稱
+    回傳: (LINE 名稱, 登記名稱或 None, 是否設為幹部)；沒有參數時回傳 None
+    登記名稱為 None 時，資料層會改用 LINE 名稱
     """
     parts = args.split()
     if not parts:
@@ -60,15 +60,15 @@ def parse_register_for_args(args: str):
 
     line_name = parts[0]
     if len(parts) == 1:
-        # /代登記 小明 → 用 LINE 名稱作為遊戲名稱
+        # /代登記 小明 → 用 LINE 名稱作為登記名稱
         return line_name, None, False
     if len(parts) == 2:
         if parts[1] in ADMIN_KEYWORDS:
-            # /代登記 小明 幹部 → 用 LINE 名稱作為遊戲名稱，設為幹部
+            # /代登記 小明 幹部 → 用 LINE 名稱作為登記名稱，設為幹部
             return line_name, None, True
-        # /代登記 小明 勇者123
+        # /代登記 小明 王小明
         return line_name, parts[1], False
-    # /代登記 小明 勇者123 幹部
+    # /代登記 小明 王小明 幹部
     return line_name, parts[1], parts[2] in ADMIN_KEYWORDS
 
 
@@ -82,14 +82,14 @@ def handle_register(line_user_id: str, line_display_name: str, args: str):
     if not args:
         return create_input_prompt_message(
             command="登記",
-            prompt="請輸入你的遊戲角色名稱",
-            examples=["/登記 光之勇者", "/登記 夜影刺客"]
+            prompt="請輸入要登記的名稱（例如本名、學號或暱稱）",
+            examples=["/登記 王小明", "/登記 陳小華"]
         )
 
     game_name = args.strip()
     if len(game_name) > 100:
         return create_error_message(
-            "遊戲名稱過長（最多 100 字）",
+            "登記名稱過長（最多 100 字）",
             quick_actions=[
                 {'label': '重新登記', 'text': '/登記'},
                 {'label': '查看說明', 'text': '/說明'}
@@ -101,7 +101,7 @@ def handle_register(line_user_id: str, line_display_name: str, args: str):
     if result['success']:
         return create_success_message(
             title="登記成功！",
-            content=f"LINE 名稱：{line_display_name}\n遊戲名稱：{game_name}",
+            content=f"LINE 名稱：{line_display_name}\n登記名稱：{game_name}",
             quick_actions=[
                 {'label': '查看名冊', 'text': '/名冊'},
                 {'label': '我的資料', 'text': '/我是誰'}
@@ -122,14 +122,14 @@ def handle_update(line_user_id: str, args: str):
     if not args:
         return create_input_prompt_message(
             command="修改",
-            prompt="請輸入新的遊戲角色名稱",
-            examples=["/修改 暗黑騎士", "/修改 風之旅人"]
+            prompt="請輸入新的登記名稱",
+            examples=["/修改 王大明", "/修改 林美美"]
         )
 
     new_game_name = args.strip()
     if len(new_game_name) > 100:
         return create_error_message(
-            "遊戲名稱過長（最多 100 字）",
+            "登記名稱過長（最多 100 字）",
             quick_actions=[
                 {'label': '重新修改', 'text': '/修改'},
                 {'label': '我的資料', 'text': '/我是誰'}
@@ -162,8 +162,8 @@ def handle_search(args: str):
     if not args:
         return create_input_prompt_message(
             command="查詢",
-            prompt="請輸入要搜尋的名稱\n可使用 LINE 名稱或遊戲名稱",
-            examples=["/查詢 小明", "/查詢 勇者"]
+            prompt="請輸入要搜尋的名稱\n可使用 LINE 名稱或登記名稱",
+            examples=["/查詢 小明", "/查詢 王"]
         )
 
     query = args.strip()
@@ -217,8 +217,8 @@ def handle_delete(line_user_id: str, args: str, admin_user_ids=frozenset()):
     if not args:
         return create_input_prompt_message(
             command="刪除成員",
-            prompt="請輸入要刪除的成員名稱\n可使用 LINE 名稱或遊戲名稱",
-            examples=["/刪除 小明", "/刪除 勇者123"]
+            prompt="請輸入要刪除的成員名稱\n可使用 LINE 名稱或登記名稱",
+            examples=["/刪除 小明", "/刪除 王小明"]
         )
 
     query = args.strip()
@@ -285,8 +285,8 @@ def handle_set_admin(line_user_id: str, args: str, admin_user_ids=frozenset()):
     if not args:
         return create_input_prompt_message(
             command="設定管理員",
-            prompt="請輸入要設為幹部的成員名稱\n可使用 LINE 名稱或遊戲名稱",
-            examples=["/設定管理員 小明", "/設定管理員 勇者123"]
+            prompt="請輸入要設為幹部的成員名稱\n可使用 LINE 名稱或登記名稱",
+            examples=["/設定管理員 小明", "/設定管理員 王小明"]
         )
 
     query = args.strip()
@@ -329,10 +329,10 @@ def handle_register_for(line_user_id: str, args: str, admin_user_ids=frozenset()
     if not args:
         return create_input_prompt_message(
             command="代登記",
-            prompt="幫其他成員登記\n\n格式：\n/代登記 [LINE名稱] [遊戲名稱]\n/代登記 [LINE名稱] [遊戲名稱] 幹部\n/代登記 [LINE名稱] 幹部\n\n只輸入「幹部」時，遊戲名稱自動用 LINE 名稱",
+            prompt="幫其他成員登記\n\n格式：\n/代登記 [LINE名稱] [登記名稱]\n/代登記 [LINE名稱] [登記名稱] 幹部\n/代登記 [LINE名稱] 幹部\n\n只輸入「幹部」時，登記名稱自動用 LINE 名稱",
             examples=[
-                "/代登記 小明 勇者123",
-                "/代登記 小明 勇者123 幹部",
+                "/代登記 小明 王小明",
+                "/代登記 小明 王小明 幹部",
                 "/代登記 小明 幹部"
             ]
         )

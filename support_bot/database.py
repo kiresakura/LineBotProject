@@ -143,10 +143,10 @@ def register_member(line_user_id: str, line_display_name: str, game_name: str) -
         if existing:
             return {
                 'success': False,
-                'message': f"你已經登記過了！\n目前綁定的遊戲名稱：{existing['game_name']}\n如需修改請使用 /修改 [新遊戲名稱]"
+                'message': f"你已經登記過了！\n目前綁定的登記名稱：{existing['game_name']}\n如需修改請使用 /修改 [新登記名稱]"
             }
 
-        # 檢查遊戲名稱是否被使用
+        # 檢查登記名稱是否被使用
         cursor.execute(
             'SELECT * FROM members WHERE game_name = %s',
             (game_name,)
@@ -154,7 +154,7 @@ def register_member(line_user_id: str, line_display_name: str, game_name: str) -
         if cursor.fetchone():
             return {
                 'success': False,
-                'message': f"遊戲名稱「{game_name}」已被其他人使用！"
+                'message': f"登記名稱「{game_name}」已被其他人使用！"
             }
 
         # 新增成員
@@ -165,13 +165,13 @@ def register_member(line_user_id: str, line_display_name: str, game_name: str) -
 
         return {
             'success': True,
-            'message': f"登記成功！\nLINE 名稱：{line_display_name}\n遊戲名稱：{game_name}"
+            'message': f"登記成功！\nLINE 名稱：{line_display_name}\n登記名稱：{game_name}"
         }
 
 
 def update_game_name(line_user_id: str, new_game_name: str) -> dict:
     """
-    修改遊戲名稱
+    修改登記名稱
     回傳: {'success': bool, 'message': str}
     """
     with get_db_cursor() as cursor:
@@ -185,10 +185,10 @@ def update_game_name(line_user_id: str, new_game_name: str) -> dict:
         if not existing:
             return {
                 'success': False,
-                'message': "你尚未登記！請先使用 /登記 [遊戲名稱]"
+                'message': "你尚未登記！請先使用 /登記 [登記名稱]"
             }
 
-        # 檢查新遊戲名稱是否被使用
+        # 檢查新登記名稱是否被使用
         cursor.execute(
             'SELECT * FROM members WHERE game_name = %s AND line_user_id != %s',
             (new_game_name, line_user_id)
@@ -196,12 +196,12 @@ def update_game_name(line_user_id: str, new_game_name: str) -> dict:
         if cursor.fetchone():
             return {
                 'success': False,
-                'message': f"遊戲名稱「{new_game_name}」已被其他人使用！"
+                'message': f"登記名稱「{new_game_name}」已被其他人使用！"
             }
 
         old_name = existing['game_name']
 
-        # 更新遊戲名稱
+        # 更新登記名稱
         cursor.execute('''
             UPDATE members
             SET game_name = %s, updated_at = NOW()
@@ -210,7 +210,7 @@ def update_game_name(line_user_id: str, new_game_name: str) -> dict:
 
         return {
             'success': True,
-            'message': f"修改成功！\n舊遊戲名稱：{old_name}\n新遊戲名稱：{new_game_name}"
+            'message': f"修改成功！\n舊登記名稱：{old_name}\n新登記名稱：{new_game_name}"
         }
 
 
@@ -274,7 +274,7 @@ def get_member_by_user_id(line_user_id: str) -> dict:
 
 def delete_member(query: str) -> dict:
     """
-    刪除成員（透過遊戲名稱或 LINE 名稱）
+    刪除成員（透過登記名稱或 LINE 名稱）
     回傳: {'success': bool, 'message': str}
     """
     with get_db_cursor() as cursor:
@@ -299,7 +299,7 @@ def delete_member(query: str) -> dict:
 
         return {
             'success': True,
-            'message': f"已刪除成員\nLINE 名稱：{member['line_display_name']}\n遊戲名稱：{member['game_name']}"
+            'message': f"已刪除成員\nLINE 名稱：{member['line_display_name']}\n登記名稱：{member['game_name']}"
         }
 
 
@@ -313,11 +313,11 @@ def is_admin(line_user_id: str) -> bool:
 
 def set_admin(query: str) -> dict:
     """
-    設定管理員（透過遊戲名稱或 LINE 名稱）
+    設定管理員（透過登記名稱或 LINE 名稱）
     回傳: {'success': bool, 'message': str}
     """
     with get_db_cursor() as cursor:
-        # 先用遊戲名稱精確搜尋
+        # 先用登記名稱精確搜尋
         cursor.execute(
             'SELECT * FROM members WHERE game_name = %s',
             (query,)
@@ -363,7 +363,7 @@ def set_admin(query: str) -> dict:
 
         return {
             'success': True,
-            'message': f"已將「{member['line_display_name']}」設為幹部\n遊戲名稱：{member['game_name']}"
+            'message': f"已將「{member['line_display_name']}」設為幹部\n登記名稱：{member['game_name']}"
         }
 
 
@@ -389,7 +389,7 @@ def get_all_admins() -> list:
 def register_by_admin(line_display_name: str, game_name: str = None, set_as_admin: bool = False) -> dict:
     """
     管理員代為登記成員（透過 LINE 名稱）
-    game_name 為 None 時，使用 LINE 名稱作為遊戲名稱
+    game_name 為 None 時，使用 LINE 名稱作為登記名稱
     回傳: {'success': bool, 'message': str}
     """
     with get_db_cursor() as cursor:
@@ -415,7 +415,7 @@ def register_by_admin(line_display_name: str, game_name: str = None, set_as_admi
                 'message': f"找不到「{line_display_name}」\n請確認該用戶已在群組中發過訊息"
             }
 
-        # 如果沒有提供遊戲名稱，使用 LINE 名稱
+        # 如果沒有提供登記名稱，使用 LINE 名稱
         actual_game_name = game_name if game_name else pending_user['line_display_name']
 
         # 檢查是否已登記
@@ -439,15 +439,15 @@ def register_by_admin(line_display_name: str, game_name: str = None, set_as_admi
                 ''', (pending_user['line_user_id'],))
                 return {
                     'success': True,
-                    'message': f"已將「{pending_user['line_display_name']}」設為幹部\n遊戲名稱：{existing_member['game_name']}"
+                    'message': f"已將「{pending_user['line_display_name']}」設為幹部\n登記名稱：{existing_member['game_name']}"
                 }
             else:
                 return {
                     'success': False,
-                    'message': f"「{pending_user['line_display_name']}」已經登記過了\n遊戲名稱：{existing_member['game_name']}"
+                    'message': f"「{pending_user['line_display_name']}」已經登記過了\n登記名稱：{existing_member['game_name']}"
                 }
 
-        # 檢查遊戲名稱是否被使用
+        # 檢查登記名稱是否被使用
         cursor.execute(
             'SELECT * FROM members WHERE game_name = %s',
             (actual_game_name,)
@@ -455,7 +455,7 @@ def register_by_admin(line_display_name: str, game_name: str = None, set_as_admi
         if cursor.fetchone():
             return {
                 'success': False,
-                'message': f"遊戲名稱「{actual_game_name}」已被其他人使用"
+                'message': f"登記名稱「{actual_game_name}」已被其他人使用"
             }
 
         # 新增成員
@@ -467,7 +467,7 @@ def register_by_admin(line_display_name: str, game_name: str = None, set_as_admi
         admin_text = "（已設為幹部）" if set_as_admin else ""
         return {
             'success': True,
-            'message': f"已為「{pending_user['line_display_name']}」登記{admin_text}\n遊戲名稱：{actual_game_name}"
+            'message': f"已為「{pending_user['line_display_name']}」登記{admin_text}\n登記名稱：{actual_game_name}"
         }
 
 
