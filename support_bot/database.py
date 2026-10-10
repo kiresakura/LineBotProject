@@ -103,6 +103,18 @@ def init_db():
             CREATE INDEX IF NOT EXISTS idx_pending_users_display_name
             ON pending_users (line_display_name)
         ''')
+
+        # 建立 handoff_requests 表（答不出來、轉給真人處理的訊息）
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS handoff_requests (
+                id SERIAL PRIMARY KEY,
+                line_user_id VARCHAR(50) NOT NULL,
+                display_name VARCHAR(100),
+                message TEXT NOT NULL,
+                status VARCHAR(10) NOT NULL DEFAULT 'open',
+                created_at VARCHAR(16) NOT NULL
+            )
+        ''')
     print("資料庫初始化完成")
 
 
@@ -484,3 +496,41 @@ def sync_display_name(line_user_id: str, current_display_name: str) -> bool:
             return True
 
         return False
+
+
+def create_handoff(line_user_id: str, display_name: str, message: str, created_at: str) -> dict:
+    """
+    新增一筆待處理的轉真人訊息
+    created_at: 店家時區的「YYYY-MM-DD HH:MM」
+    回傳: 新增的資料（含編號 id）
+    """
+    with get_db_cursor() as cursor:
+        cursor.execute('''
+            INSERT INTO handoff_requests (line_user_id, display_name, message, created_at)
+            VALUES (%s, %s, %s, %s)
+            RETURNING *
+        ''', (line_user_id, display_name, message, created_at))
+        return cursor.fetchone()
+
+
+def list_open_handoffs(limit: int = 20) -> list:
+    """取得尚未處理的轉真人訊息（舊的在前）"""
+    with get_db_cursor() as cursor:
+        cursor.execute(
+            "SELECT * FROM handoff_requests WHERE status = 'open' ORDER BY id LIMIT %s",
+            (limit,)
+        )
+        return cursor.fetchall()
+
+
+def resolve_handoff(request_id: int) -> bool:
+    """
+    把轉真人訊息標記為已處理
+    回傳: 是否有這筆尚未處理的訊息
+    """
+    with get_db_cursor() as cursor:
+        cursor.execute(
+            "UPDATE handoff_requests SET status = 'done' WHERE id = %s AND status = 'open'",
+            (request_id,)
+        )
+        return cursor.rowcount == 1
