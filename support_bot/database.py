@@ -5,6 +5,7 @@ from psycopg2.extras import RealDictCursor
 from contextlib import contextmanager
 
 SQLITE_URL_PREFIX = 'sqlite:///'
+DEFAULT_DATABASE_URL = 'sqlite:///bot.db'
 
 # 本模組的 SQL 以 PostgreSQL 撰寫；使用 SQLite（本機示範與測試）時換成等價語法
 SQLITE_REWRITES = [
@@ -38,10 +39,10 @@ def dict_row_factory(cursor, row):
 def get_connection():
     """
     建立資料庫連線（連線時才讀 DATABASE_URL，確保 load_dotenv() 的設定生效）
-    DATABASE_URL 為 sqlite:///檔案路徑 時改用本機 SQLite，不需要 PostgreSQL
+    DATABASE_URL 為 sqlite:///檔案路徑 時改用本機 SQLite，不需要 PostgreSQL；沒有設定時使用目前目錄的 bot.db
     """
-    database_url = os.environ.get('DATABASE_URL')
-    if database_url and database_url.startswith(SQLITE_URL_PREFIX):
+    database_url = os.environ.get('DATABASE_URL') or DEFAULT_DATABASE_URL
+    if database_url.startswith(SQLITE_URL_PREFIX):
         conn = sqlite3.connect(database_url[len(SQLITE_URL_PREFIX):])
         conn.row_factory = dict_row_factory
         return conn
