@@ -1,7 +1,7 @@
 """
 訊息處理流程（Webhook 與本機示範共用；不直接呼叫 LINE API，回傳要回覆的 LINE 訊息物件或 None）
 
-一對一聊天：管理指令 → 群組名冊指令（有開啟時）→ 固定關鍵字 → FAQ → 轉真人
+一對一聊天：管理指令 → 群組名冊指令（有開啟時）→ 固定關鍵字 → FAQ → AI 回答（有開啟時）→ 轉真人
 群組／多人聊天室：只處理群組名冊指令，其他訊息不回覆以免洗版；管理指令只能在一對一聊天使用
 """
 
@@ -12,6 +12,7 @@ from linebot.v3.messaging import TextMessage
 
 from support_bot import database as db
 from support_bot import roster
+from support_bot.ai import AiAnswerer, OpenAICompatibleClient
 from support_bot.faq import load_faq
 from support_bot.handoff import LinePushNotifier, LogNotifier
 from support_bot.rules import load_rules
@@ -23,12 +24,14 @@ ADMIN_COMMANDS = ('/待處理', '/完成')
 
 
 class SupportBot:
-    def __init__(self, faq, rules, notifier, admin_user_ids=frozenset(), roster_enabled=False, clock=None):
+    def __init__(self, faq, rules, notifier, admin_user_ids=frozenset(), roster_enabled=False, answerer=None,
+                 clock=None):
         self.faq = faq
         self.rules = rules
         self.notifier = notifier
         self.admin_user_ids = set(admin_user_ids)
         self.roster_enabled = roster_enabled
+        self.answerer = answerer
         self.clock = clock or (lambda: datetime.now(timezone.utc))
 
     def reply(self, user_id: str, display_name: str, text: str, chat_type: str = PRIVATE_CHAT):
@@ -57,6 +60,11 @@ class SupportBot:
         match = self.faq.match(text)
         if match:
             return TextMessage(text=match.entry.answer)
+
+        if self.answerer:
+            ai_reply = self.answerer.answer(text)
+            if ai_reply:
+                return TextMessage(text=ai_reply)
 
         return self.hand_off(user_id, display_name, text)
 
@@ -115,11 +123,20 @@ def build_bot(settings, push=None, clock=None) -> SupportBot:
     else:
         raise ValueError(f'HANDOFF_NOTIFIER 只能是 log 或 line_push，收到「{settings.handoff_notifier}」')
 
+    faq = load_faq(settings.faq_file)
+    answerer = None
+    if settings.ai_enabled:
+        if not settings.ai_model:
+            raise ValueError('AI_ENABLED=true 時需要設定 AI_MODEL')
+        client = OpenAICompatibleClient(settings.ai_base_url, settings.ai_api_key, settings.ai_model)
+        answerer = AiAnswerer(client, faq)
+
     return SupportBot(
-        faq=load_faq(settings.faq_file),
+        faq=faq,
         rules=load_rules(settings.rules_file),
         notifier=notifier,
         admin_user_ids=settings.admin_user_ids,
         roster_enabled=settings.roster_enabled,
+        answerer=answerer,
         clock=clock,
     )

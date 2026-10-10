@@ -29,6 +29,10 @@ class Settings:
     admin_user_ids: frozenset = frozenset()
     roster_enabled: bool = False
     handoff_notifier: str = 'log'
+    ai_enabled: bool = False
+    ai_base_url: str = 'https://api.openai.com/v1'
+    ai_api_key: str = ''
+    ai_model: str = ''
 
     @classmethod
     def from_env(cls, environ=None) -> 'Settings':
@@ -41,4 +45,8 @@ class Settings:
             admin_user_ids=parse_id_list(env.get('ADMIN_USER_IDS')),
             roster_enabled=parse_flag(env.get('ROSTER_ENABLED')),
             handoff_notifier=(env.get('HANDOFF_NOTIFIER') or 'log').strip().lower(),
+            ai_enabled=parse_flag(env.get('AI_ENABLED')),
+            ai_base_url=env.get('AI_BASE_URL') or 'https://api.openai.com/v1',
+            ai_api_key=env.get('AI_API_KEY', ''),
+            ai_model=env.get('AI_MODEL', ''),
         )

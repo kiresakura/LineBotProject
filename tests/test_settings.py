@@ -38,3 +38,18 @@ def test_flag_accepts_common_true_values_only():
         assert Settings.from_env({'ROSTER_ENABLED': value}).roster_enabled is True
     for value in ['', '0', 'false', 'off', 'enabled']:
         assert Settings.from_env({'ROSTER_ENABLED': value}).roster_enabled is False
+
+
+def test_ai_settings():
+    assert Settings.from_env({}).ai_enabled is False
+
+    settings = Settings.from_env({
+        'AI_ENABLED': 'true',
+        'AI_BASE_URL': 'http://localhost:11434/v1',
+        'AI_API_KEY': 'key',
+        'AI_MODEL': 'model-name',
+    })
+
+    assert settings.ai_enabled is True
+    assert (settings.ai_base_url, settings.ai_api_key, settings.ai_model) == ('http://localhost:11434/v1', 'key', 'model-name')
+    assert Settings.from_env({'AI_BASE_URL': ''}).ai_base_url == 'https://api.openai.com/v1'
