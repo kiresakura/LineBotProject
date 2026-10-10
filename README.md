@@ -168,3 +168,7 @@ Tech stack: Python 3.11+, Flask, line-bot-sdk v3, PyYAML, gunicorn, SQLite or Po
 ---
 
 Customization: https://www.tasker.com.tw/workroom/crimson
+
+## License
+
+[MIT](LICENSE)

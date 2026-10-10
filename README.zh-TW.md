@@ -168,3 +168,7 @@ pytest
 ---
 
 Customization: https://www.tasker.com.tw/workroom/crimson
+
+## 授權
+
+[MIT](LICENSE)
