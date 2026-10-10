@@ -1,0 +1,27 @@
+# docker compose up --build                     → SQLite（資料存在 bot-data volume）
+# docker compose --profile postgres up --build  → 另外啟動 PostgreSQL；.env 的 DATABASE_URL 要改成
+#                                                 postgresql://bot:bot@postgres:5432/bot
+services:
+  bot:
+    build: .
+    env_file: .env
+    ports:
+      - "8000:8000"
+    volumes:
+      - bot-data:/app/data
+    restart: unless-stopped
+
+  postgres:
+    image: postgres:17
+    profiles: [postgres]
+    environment:
+      POSTGRES_USER: bot
+      POSTGRES_PASSWORD: bot
+      POSTGRES_DB: bot
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    restart: unless-stopped
+
+volumes:
+  bot-data:
+  postgres-data:
