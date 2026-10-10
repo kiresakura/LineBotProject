@@ -3,12 +3,10 @@ import psycopg2
 from psycopg2.extras import RealDictCursor
 from contextlib import contextmanager
 
-DATABASE_URL = os.environ.get('DATABASE_URL')
-
 
 def get_connection():
-    """建立資料庫連線"""
-    return psycopg2.connect(DATABASE_URL, cursor_factory=RealDictCursor)
+    """建立資料庫連線（連線時才讀 DATABASE_URL，確保 load_dotenv() 的設定生效）"""
+    return psycopg2.connect(os.environ.get('DATABASE_URL'), cursor_factory=RealDictCursor)
 
 
 @contextmanager
