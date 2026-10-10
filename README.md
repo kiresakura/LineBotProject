@@ -1,133 +1,157 @@
-# LINE Group Roster Bot
+# LINE Customer Service Bot Template
 
 [![CI](https://github.com/kiresakura/LineBotProject/actions/workflows/ci.yml/badge.svg)](https://github.com/kiresakura/LineBotProject/actions/workflows/ci.yml)
 
-**Keeps a member roster for a LINE group:** members link their LINE name to an in-game character name with a chat command, and officers can look up, register, and remove members without leaving LINE.
+**A LINE Official Account bot for small businesses: it answers common questions from a YAML file, knows your opening hours, and hands anything it can't answer to a human.**
 
 [繁體中文說明](README.zh-TW.md)
 
-> **Status:** there is no public running instance of this bot. It was built for an online game guild's LINE group and is no longer running there. This repository is the deployable source: try it offline in demo mode, or follow the deployment steps to run your own copy.
+> This is a template / showcase version built around a **fictional** café (小島咖啡). Replace the two YAML files with your own content, or have it customized for your shop, cram school, or community. There is no public running instance.
 
-## Features
-
-- **Self-service registration** – `/登記 <name>` links your LINE account to a game character name (max 100 characters, one per person, names must be unique); `/修改` changes it; `/我是誰` shows your record.
-- **Search** – `/查詢 <keyword>` matches part of a LINE name or game name.
-- **Officer-only roster** – `/名冊` shows 20 members per page with previous/next buttons; `/名冊 全部` lists everyone as plain text.
-- **Officer tools** – `/代登記` registers someone who has posted in the group (optionally as an officer), `/刪除` removes a member, `/設定管理員` promotes a member.
-- **Bootstrap** – while there are no officers, the first registered member who sends `/設定管理員` becomes the first officer.
-- **Name sync** – when a registered member changes their LINE display name, the roster picks it up on their next message.
-- **Rich replies** – Flex Message cards and quick-reply buttons; `/選單` opens a button menu.
-- **Signed webhooks only** – requests to `/callback` are rejected with HTTP 400 unless `X-Line-Signature` matches the HMAC-SHA256 of the body under the channel secret.
-
-## Commands
-
-The bot replies only to messages starting with `/`; everything else is ignored (but remembered for `/代登記`).
-
-| Command | Who | What it does |
-|---|---|---|
-| `/登記 <game name>` | everyone | Register yourself |
-| `/修改 <new game name>` | everyone | Change your game name |
-| `/查詢 <keyword>` | everyone | Search by LINE name or game name |
-| `/我是誰` | everyone | Show your own record |
-| `/幹部` (`/幹部名單`) | everyone | List officers |
-| `/說明` (`/help`, `/幫助`) | everyone | Command help |
-| `/選單` (`/menu`, `/功能`) | everyone | Button menu |
-| `/名冊 [page \| 全部]` | officers | Show the roster |
-| `/代登記 <LINE name> [game name] [幹部]` | officers | Register a member who has posted in the group; without a game name their LINE name is used; `幹部` (or `管理員`, `admin`) also makes them an officer |
-| `/刪除 <name>` | officers | Remove a member by game name or LINE name |
-| `/設定管理員 <name>` | officers | Make a member an officer (exact game name, then exact LINE name, then partial match) |
-
-## Try it offline (demo mode)
-
-No LINE account, keys, or PostgreSQL needed. `demo.py` sends simulated group messages through the same command handlers the webhook uses and stores data in a throwaway SQLite file.
+## 30-second demo (no LINE account needed)
 
 ```bash
 git clone https://github.com/kiresakura/LineBotProject.git
 cd LineBotProject
 python3 -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt
-
-python demo.py examples/demo-chat.txt   # replay a scripted group chat
-python demo.py                          # or type lines like: 小明: /登記 光之勇者
+python -m support_bot.demo
 ```
 
-Each line is `<name>: <message>`; leave out the name to keep talking as the previous speaker. Add `--db roster.db` to keep the data between runs. Excerpt of the replay:
+The demo replays [`examples/demo-shop.txt`](examples/demo-shop.txt) through the same code the webhook uses (local SQLite, simulated clock). Excerpt of the real output:
 
 ```text
-小明: /設定管理員
-🤖 ✅ 你已成為第一位管理員！
+🕑 2026-10-13（二）14:00，營業中
 
-   現在可以使用管理員指令了
-   [查看名冊] [查看說明]
+王小姐: 請問營業到幾點？
+🤖 週二至週日 10:00–20:00，週一公休；臨時公休會另外公告。
 
-小華: 大家好，我是新來的
-小明: /代登記 小華 夜影刺客
-🤖 ✅ 代登記成功
+王小姐: 可以帶毛小孩嗎？
+🤖 歡迎！寵物請使用牽繩或提籠，店內備有寵物水碗。
 
-   已為「小華」登記
-   遊戲名稱：夜影刺客
-   [查看名冊]
+王小姐: 週末可以包場辦生日派對嗎？
+🔔 通知管理員（log）：轉真人 #1｜王小姐：週末可以包場辦生日派對嗎？
+🤖 這個問題我先幫您轉給店員，已通知專人，會盡快回覆您 🙏
 
-小明: /名冊
-🤖 📋 成員名冊 第 1/1 頁，共 3 人
-   1. 小明 ↔ 光之勇者
-   2. 阿美 ↔ 風之旅人
-   3. 小華 ↔ 夜影刺客
+🕑 2026-10-13（二）22:30，非營業時間
+
+陳先生: 我昨天掉了一把傘在店裡
+🔔 通知管理員（log）：轉真人 #2｜陳先生：我昨天掉了一把傘在店裡
+🤖 目前是非營業時間（週二至週日 10:00–20:00）。
+   您的訊息已記錄，店員會在營業時間回覆您 🙏
+
+店長: /待處理
+🤖 📋 待處理 2 筆（由舊到新）
+   #1 10/13 14:00 王小姐
+      週末可以包場辦生日派對嗎？
 ```
+
+Try your own messages with `python -m support_bot.demo --interactive`, or the group roster module with `python -m support_bot.demo examples/demo-group.txt`.
+
+## Who it's for
+
+- **Shops, cafés, salons** – answer opening hours, location, parking, and payment questions instantly; send the menu link or current promotion by keyword.
+- **Cram schools and studios** – class times, fees, and enrollment FAQs; questions about a specific student go to staff.
+- **Community organizers** – the optional group roster lets members register a name and officers manage the list inside the LINE group.
+
+## Features
+
+| | What it does | Where to change it |
+|---|---|---|
+| **FAQ auto-reply** | Matches keywords (longest/most matches win), synonyms (`毛小孩` → `寵物`), and messages that closely resemble a listed question | `config/faq.yaml` |
+| **Hours and rules** | Weekly opening hours (several periods per day, overnight periods), closed dates, fixed replies for keywords such as `菜單` or `優惠` | `config/rules.yaml` |
+| **Human handoff** | Unanswered questions get "已通知專人" (or the after-hours message), are saved to a pending list, and trigger a notification | `config/rules.yaml`, `HANDOFF_NOTIFIER` |
+| **Admin commands** | `/待處理` lists pending questions, `/完成 <id>` closes one; only for LINE user IDs in `ADMIN_USER_IDS`, only in one-on-one chat | `ADMIN_USER_IDS` |
+| **Group roster** (optional) | Members link their LINE name to a registered name; officers search, list, and manage members | `ROSTER_ENABLED=true` |
+| **AI answers** (optional, off) | Any OpenAI-compatible API answers from the FAQ only and must cite the FAQ entries it used; otherwise the question goes to a human | `AI_ENABLED=true` |
+
+Notifications are a small interface: the default writes a log line (visible in your hosting platform's logs); `HANDOFF_NOTIFIER=line_push` pushes the request to every admin's LINE account instead. LINE Notify was discontinued on 2025-03-31, and push messages are the usual replacement – they count toward your official account's monthly message quota.
+
+### Security and reliability
+
+- Requests to `/callback` are rejected with HTTP 400 unless `X-Line-Signature` matches the HMAC-SHA256 of the body under your channel secret.
+- Each `webhookEventId` is processed once, so LINE redeliveries don't produce duplicate replies or duplicate handoffs; if processing fails, the event is released so a redelivery can retry it.
+- All secrets and settings come from environment variables; the app refuses to start when the LINE credentials are missing or a setting is invalid.
+- In group chats the bot only reacts to roster commands, so it never floods a group with FAQ answers or handoff messages.
+
+## How a message is handled
+
+```text
+one-on-one chat:  admin command → roster command (if enabled) → keyword reply → FAQ → AI (if enabled) → hand off to a human
+group / room:     roster command (if enabled) → otherwise no reply
+```
+
+## Customize it
+
+1. **Edit `config/faq.yaml`** – each entry has an `id`, the `question`, `keywords`, and the `answer`; add customer phrasings under `synonyms`.
+2. **Edit `config/rules.yaml`** – `business_hours`, `closed_dates`, the handoff and after-hours replies, and `keyword_replies`.
+3. **Check your changes offline** – `python -m support_bot.demo --interactive` uses the same files (or pass `--faq` / `--rules` to try another copy). Bad YAML stops the app at startup with the file name and the problem.
+
+Typical customizations on request: your own FAQ and tone, a rich menu, a reply-to-customer command, a dashboard for the pending list, or another notification channel.
+
+## Deploy your own
+
+### 1. Create the LINE channel
+
+1. Create a LINE Official Account and enable the Messaging API for it (LINE Official Account Manager → Settings → Messaging API). The channel then appears in the [LINE Developers Console](https://developers.line.biz/console/).
+2. In the console, open the channel:
+   - **Basic settings** → **Channel secret** → `LINE_CHANNEL_SECRET`; **Your user ID** → put it in `ADMIN_USER_IDS`
+   - **Messaging API** → issue a **Channel access token (long-lived)** → `LINE_CHANNEL_ACCESS_TOKEN`
+3. In LINE Official Account Manager, turn off the built-in auto-reply messages so they don't answer alongside the bot (and allow group chats if you use the roster).
+
+### 2. Run the server
+
+**Docker (any VPS):**
+
+```bash
+cp .env.example .env        # fill in the LINE values
+docker compose up -d --build                        # SQLite, stored in the bot-data volume
+docker compose --profile postgres up -d --build     # or with PostgreSQL: set DATABASE_URL=postgresql://bot:bot@postgres:5432/bot in .env
+```
+
+The bot listens on port 8000; put it behind HTTPS (for example a reverse proxy), because LINE only calls `https://` webhooks.
+
+**Render:** New → Web Service → connect your copy of this repository → choose the Docker runtime (it builds the `Dockerfile`) → add the environment variables → deploy. Render's filesystem is ephemeral unless you attach a disk, so use a PostgreSQL database (`DATABASE_URL`) to keep the pending list and roster.
+
+**Railway:** New Project → Deploy from GitHub repo. `railway.toml` sets the gunicorn start command and the `/health` check. Add a PostgreSQL database, set `DATABASE_URL` to `${{Postgres.DATABASE_URL}}`, and add the LINE variables.
+
+### 3. Connect the webhook
+
+In the console's **Messaging API** tab, set **Webhook URL** to `https://<your-domain>/callback`, click **Verify**, and turn on **Use webhook**. Then message your official account.
+
+### Environment variables
+
+| Variable | Default | Description |
+|---|---|---|
+| `LINE_CHANNEL_SECRET` | – (required) | Verifies `X-Line-Signature` |
+| `LINE_CHANNEL_ACCESS_TOKEN` | – (required) | Sends replies, reads display names, pushes notifications |
+| `DATABASE_URL` | `sqlite:///bot.db` | `postgresql://…` or `sqlite:///file.db`; the Docker image uses `/app/data/bot.db` |
+| `ADMIN_USER_IDS` | empty | Comma-separated LINE user IDs allowed to run admin commands |
+| `HANDOFF_NOTIFIER` | `log` | `log` or `line_push` (needs `ADMIN_USER_IDS`) |
+| `FAQ_FILE`, `RULES_FILE` | `config/faq.yaml`, `config/rules.yaml` | Content files |
+| `ROSTER_ENABLED` | `false` | Turns on the group roster commands |
+| `AI_ENABLED` | `false` | Turns on AI answers; customer messages are then sent to the API below |
+| `AI_BASE_URL`, `AI_API_KEY`, `AI_MODEL` | `https://api.openai.com/v1`, empty, empty | OpenAI-compatible endpoint; `AI_MODEL` is required when AI is on |
+| `PORT` | 5000 (`python -m support_bot.web`), 8000 (Docker) | Listening port |
+
+See [`.env.example`](.env.example) for the same list with comments.
+
+## Group roster module
+
+With `ROSTER_ENABLED=true` the original roster commands work in groups and one-on-one chats: `/登記 <name>`, `/修改`, `/查詢`, `/我是誰`, `/幹部`, `/說明`, `/選單`, and for officers `/名冊 [page|全部]`, `/代登記`, `/刪除`, `/設定管理員`. Admins in `ADMIN_USER_IDS` are always officers; when the whitelist is empty, the first registered member who sends `/設定管理員` becomes the first officer. Each deployment keeps one roster (members are not separated by group). The replies still use the wording of the original game-guild version (for example 遊戲名稱 for the registered name).
 
 ## Architecture
 
 ```text
-LINE platform ── POST /callback ──▶ app.py        Flask: verify signature, look up display name, send reply
+LINE platform ── POST /callback ──▶ web.py      verify signature, skip redelivered events, call the LINE API
                                       │
-demo.py (terminal) ──────────────────▶ handlers.py   parse commands, check permissions (no LINE API calls)
-                                      ├──▶ database.py   roster storage: PostgreSQL in production, SQLite for demo/tests
-                                      └──▶ messages.py   build Flex / text replies
+demo.py (terminal) ─────────────────▶ bot.py      admin commands → roster → keyword reply → FAQ → AI → handoff
+                                      ├── rules.py / faq.py    read config/*.yaml, opening hours, matching
+                                      ├── ai.py                optional OpenAI-compatible client (standard library only)
+                                      ├── handoff.py           notifiers: log, LINE push
+                                      ├── roster.py            optional group roster commands (+ roster_messages.py)
+                                      └── database.py          SQLite or PostgreSQL: pending list, processed events, roster
 ```
-
-| File | Role |
-|---|---|
-| `app.py` | Flask app with `/callback` (LINE webhook) and `/health`; the only module that calls the LINE Messaging API |
-| `handlers.py` | Command parsing, routing, and permission checks; returns a LINE message object or `None` |
-| `database.py` | Roster queries; `DATABASE_URL` selects PostgreSQL (`postgresql://…`) or SQLite (`sqlite:///file.db`) |
-| `messages.py` | Flex Message / quick-reply builders |
-| `demo.py` | Offline terminal demo |
-
-Each deployment keeps one roster: members are not separated by group, so run one deployment per community.
-
-## Deploy your own
-
-### 1. Create a LINE Messaging API channel
-
-1. Create a LINE Official Account and enable the Messaging API for it (LINE Official Account Manager → Settings → Messaging API). This creates a channel you can manage in the [LINE Developers Console](https://developers.line.biz/console/).
-2. In the console, open the channel:
-   - **Basic settings** → **Channel secret** → `LINE_CHANNEL_SECRET`
-   - **Messaging API** → issue a **Channel access token (long-lived)** → `LINE_CHANNEL_ACCESS_TOKEN`
-3. In LINE Official Account Manager, allow the account to join group chats and turn off auto-reply messages.
-
-### 2. Deploy the web service
-
-Any host that runs a Python web process and offers PostgreSQL works. The repo includes a `Procfile` and `railway.toml` (gunicorn, `/health` check) for [Railway](https://railway.app/):
-
-1. **New Project** → **Deploy from GitHub repo** → pick your copy of this repository.
-2. Add a PostgreSQL database to the project. In the bot service's **Variables**, set `DATABASE_URL` to the database's connection URL (on Railway, the reference `${{Postgres.DATABASE_URL}}`), plus `LINE_CHANNEL_SECRET` and `LINE_CHANNEL_ACCESS_TOKEN`.
-3. Deploy. Tables are created on startup and `GET /health` returns `OK`.
-
-### 3. Connect the webhook
-
-1. In the console's **Messaging API** tab, set **Webhook URL** to `https://<your-domain>/callback`, click **Verify**, and turn on **Use webhook**.
-2. Invite the bot's account into your LINE group and send `/說明`.
-
-### Environment variables
-
-| Variable | Required | Description |
-|---|---|---|
-| `LINE_CHANNEL_SECRET` | yes | Verifies `X-Line-Signature`; the app refuses to start without it |
-| `LINE_CHANNEL_ACCESS_TOKEN` | yes | Sends replies and looks up display names; the app refuses to start without it |
-| `DATABASE_URL` | yes | `postgresql://…` in production, or `sqlite:///roster.db` for local runs |
-| `PORT` | no | Port for `python app.py` (default 5000) |
-
-See [`.env.example`](.env.example). To test against real LINE from your machine, copy it to `.env`, fill it in, run `python app.py`, and expose port 5000 with a tunnel such as `ngrok http 5000`.
 
 ## Development
 
@@ -137,8 +161,10 @@ ruff check .
 pytest
 ```
 
-The 67 tests run offline in about a second, with no LINE account, keys, or database server. They cover roster storage (against SQLite), command parsing and permissions, the demo replay, and the webhook: valid, missing, and wrong-secret signatures, a tampered body, and a signed message event processed end to end with the LINE API stubbed. GitHub Actions runs `ruff check .` and `pytest` on Python 3.11 and 3.12 for every push and pull request.
+The 159 tests run offline in about a second, with no LINE account, keys, network, or database server: FAQ matching, opening hours (including overnight periods and closed dates), the full reply pipeline, handoff and notifiers, admin whitelist, roster commands, webhook signature checks and duplicate events, the AI path with a fake model, and both demo scripts. GitHub Actions runs `ruff` and `pytest` on Python 3.11 and 3.12, then builds the Docker image and checks `/health` on the running container.
 
-## Tech stack
+Tech stack: Python 3.11+, Flask, line-bot-sdk v3, PyYAML, gunicorn, SQLite or PostgreSQL (psycopg2).
 
-Python 3.11+, Flask, line-bot-sdk v3, PostgreSQL (psycopg2), gunicorn; SQLite for the demo and tests.
+---
+
+Customization: https://www.tasker.com.tw/workroom/crimson
