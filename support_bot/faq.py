@@ -11,6 +11,8 @@ from dataclasses import dataclass
 import yaml
 
 DEFAULT_MIN_SIMILARITY = 0.7
+# standalone 問答（問候、道謝）允許關鍵字以外再多幾個字，例如「謝謝你」「您好啊」
+STANDALONE_EXTRA_CHARS = 2
 
 
 def normalize(text: str) -> str:
@@ -25,6 +27,7 @@ class FaqEntry:
     question: str
     answer: str
     keywords: tuple = ()
+    standalone: bool = False  # True：訊息幾乎只有關鍵字時才回覆，避免「您好，我想取消訂單」被當成打招呼
 
 
 @dataclass(frozen=True)
@@ -74,7 +77,14 @@ class FaqBook:
         # 1. 關鍵字：命中的關鍵字越長、越多，分數越高；同分時取檔案中較前面的問答
         best = None
         for entry in self.entries:
-            score = sum(len(keyword) for keyword in self._keywords[entry.id] if keyword and keyword in message)
+            matched = [keyword for keyword in self._keywords[entry.id] if keyword and keyword in message]
+            if entry.standalone:
+                rest = message
+                for keyword in matched:
+                    rest = rest.replace(keyword, '')
+                if len(rest) > STANDALONE_EXTRA_CHARS:
+                    continue
+            score = sum(len(keyword) for keyword in matched)
             if score and (best is None or score > best.score):
                 best = FaqMatch(entry, 'keyword', score)
         if best:
@@ -114,6 +124,7 @@ def load_faq(path) -> FaqBook:
             question=str(item['question']).strip(),
             answer=str(item['answer']).strip(),
             keywords=tuple(str(keyword) for keyword in item.get('keywords') or ()),
+            standalone=bool(item.get('standalone', False)),
         ))
 
     return FaqBook(

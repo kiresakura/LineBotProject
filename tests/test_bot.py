@@ -55,6 +55,14 @@ def test_unanswered_question_is_handed_off_during_business_hours(db):
     assert bot.notifier.requests[0]['id'] == request['id']
 
 
+def test_greeting_with_a_question_is_not_swallowed(db):
+    bot = make_bot()
+
+    assert bot.reply('U1', '王小姐', '您好').text.startswith('您好！我是小島咖啡')
+    assert bot.reply('U1', '王小姐', '您好，我想取消訂單').text == bot.rules.handoff_reply
+    assert db.list_open_handoffs()[0]['message'] == '您好，我想取消訂單'
+
+
 def test_after_hours_question_gets_after_hours_reply_and_is_recorded(db):
     bot = make_bot(now=CLOSED)
 

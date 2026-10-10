@@ -48,8 +48,20 @@ def test_synonyms_map_to_keywords(faq, text, expected):
 
 
 def test_more_specific_keywords_win(faq):
-    # 「你好」只命中問候，「營業」與「幾點開」命中營業時間，字數多的優先
-    assert matched_id(faq, '你好，請問幾點開門') == 'hours'
+    # 營業時間命中「幾點開」＋「開門」共 5 字，地址只命中「在哪」2 字
+    assert matched_id(faq, '幾點開門？店在哪') == 'hours'
+
+
+@pytest.mark.parametrize('text, expected', [
+    ('你好', 'greeting'),
+    ('您好啊！', 'greeting'),
+    ('謝謝你', 'thanks'),
+    ('你好，請問幾點開門', 'hours'),
+    ('您好，我想取消訂單', None),        # 問候之外還有別的內容：不能只回打招呼
+    ('嗨，可以包場嗎', None),
+])
+def test_standalone_entries_only_answer_short_messages(faq, text, expected):
+    assert matched_id(faq, text) == expected
 
 
 def test_similar_question_without_keywords(faq):
