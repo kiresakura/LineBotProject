@@ -7,8 +7,7 @@ from linebot.v3.messaging import (
     Configuration,
     ApiClient,
     MessagingApi,
-    ReplyMessageRequest,
-    TextMessage
+    ReplyMessageRequest
 )
 from linebot.v3.webhooks import (
     MessageEvent,

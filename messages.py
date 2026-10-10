@@ -9,14 +9,8 @@ from linebot.v3.messaging import (
     FlexContainer,
     QuickReply,
     QuickReplyItem,
-    MessageAction,
-    FlexBubble,
-    FlexBox,
-    FlexText,
-    FlexSeparator,
-    FlexButton
+    MessageAction
 )
-import json
 
 
 def create_quick_reply(items: list) -> QuickReply:

@@ -13,8 +13,7 @@ from messages import (
     create_help_message,
     create_success_message,
     create_error_message,
-    create_input_prompt_message,
-    create_quick_reply
+    create_input_prompt_message
 )
 from linebot.v3.messaging import TextMessage
 
