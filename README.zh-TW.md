@@ -83,7 +83,7 @@ python -m support_bot.demo
 
 ## 客製方式
 
-1. **改 `config/faq.yaml`**：每筆有 `id`、`question`、`keywords`、`answer`；顧客的其他說法加到 `synonyms`。
+1. **改 `config/faq.yaml`**：每筆有 `id`、`question`、`keywords`、`answer`；顧客的其他說法加到 `synonyms`；問候、道謝這類閒聊加上 `standalone: true`，「您好，我想取消訂單」才不會只得到一句問候。
 2. **改 `config/rules.yaml`**：`business_hours`、`closed_dates`、轉真人與非營業時間的回覆、`keyword_replies`。
 3. **離線確認**：`python -m support_bot.demo --interactive` 會讀同一份設定（也可以用 `--faq`、`--rules` 指定另一份）。YAML 寫錯時程式在啟動階段就會停下並指出檔名與問題。
 
@@ -109,7 +109,7 @@ docker compose up -d --build                        # SQLite，資料存在 bot-
 docker compose --profile postgres up -d --build     # 或搭配 PostgreSQL：.env 設 DATABASE_URL=postgresql://bot:bot@postgres:5432/bot
 ```
 
-服務監聽 8000 埠；LINE 只會呼叫 `https://` 的 Webhook，前面要接 HTTPS（例如反向代理）。
+服務監聽 8000 埠；LINE 只會呼叫 `https://` 的 Webhook，前面要接 HTTPS（例如反向代理）。使用 `postgres` profile 時，第一次啟動可能會在資料庫就緒前自動重啟幾次（`restart: unless-stopped`）。
 
 **Render：** New → Web Service → 連結你的 repository → 選 Docker runtime（會用 `Dockerfile` 建置）→ 加入環境變數 → 部署。Render 的檔案系統在沒有掛載磁碟時不會保留，請使用 PostgreSQL（`DATABASE_URL`）保存待處理清單與名冊。
 
@@ -161,7 +161,7 @@ ruff check .
 pytest
 ```
 
-160 個測試約一秒跑完，不需要 LINE 帳號、金鑰、網路或資料庫伺服器：FAQ 比對、營業時間（含跨午夜與公休日）、完整處理流程、轉真人與通知管道、管理員白名單、名冊指令、Webhook 驗簽與重送事件、以假模型測 AI 流程，以及兩份示範腳本。GitHub Actions 在 Python 3.11 與 3.12 執行 `ruff` 與 `pytest`，也對 PostgreSQL 17 跑同一套測試（本機設定 `TEST_DATABASE_URL` 即可），並建置 Docker 映像、檢查執行中容器的 `/health`。
+173 個測試約一秒跑完，不需要 LINE 帳號、金鑰、網路或資料庫伺服器：FAQ 比對、營業時間（含跨午夜與公休日）、完整處理流程、轉真人與通知管道、管理員白名單、名冊指令、Webhook 驗簽與重送事件、以假模型測 AI 流程，以及兩份示範腳本。GitHub Actions 在 Python 3.11 與 3.12 執行 `ruff` 與 `pytest`，也對 PostgreSQL 17 跑同一套測試（本機設定 `TEST_DATABASE_URL` 即可），並建置 Docker 映像、檢查執行中容器的 `/health`。
 
 技術棧：Python 3.11+、Flask、line-bot-sdk v3、PyYAML、gunicorn、SQLite 或 PostgreSQL（psycopg2）。
 

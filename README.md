@@ -83,7 +83,7 @@ group / room:     roster command (if enabled) → otherwise no reply
 
 ## Customize it
 
-1. **Edit `config/faq.yaml`** – each entry has an `id`, the `question`, `keywords`, and the `answer`; add customer phrasings under `synonyms`.
+1. **Edit `config/faq.yaml`** – each entry has an `id`, the `question`, `keywords`, and the `answer`; add customer phrasings under `synonyms`; mark small talk such as greetings `standalone: true` so "hello, I want to cancel my order" is not answered with a greeting.
 2. **Edit `config/rules.yaml`** – `business_hours`, `closed_dates`, the handoff and after-hours replies, and `keyword_replies`.
 3. **Check your changes offline** – `python -m support_bot.demo --interactive` uses the same files (or pass `--faq` / `--rules` to try another copy). Bad YAML stops the app at startup with the file name and the problem.
 
@@ -109,7 +109,7 @@ docker compose up -d --build                        # SQLite, stored in the bot-
 docker compose --profile postgres up -d --build     # or with PostgreSQL: set DATABASE_URL=postgresql://bot:bot@postgres:5432/bot in .env
 ```
 
-The bot listens on port 8000; put it behind HTTPS (for example a reverse proxy), because LINE only calls `https://` webhooks.
+The bot listens on port 8000; put it behind HTTPS (for example a reverse proxy), because LINE only calls `https://` webhooks. With the `postgres` profile the bot may restart a few times on the first start until the database is ready (`restart: unless-stopped`).
 
 **Render:** New → Web Service → connect your copy of this repository → choose the Docker runtime (it builds the `Dockerfile`) → add the environment variables → deploy. Render's filesystem is ephemeral unless you attach a disk, so use a PostgreSQL database (`DATABASE_URL`) to keep the pending list and roster.
 
@@ -161,7 +161,7 @@ ruff check .
 pytest
 ```
 
-The 160 tests run offline in about a second, with no LINE account, keys, network, or database server: FAQ matching, opening hours (including overnight periods and closed dates), the full reply pipeline, handoff and notifiers, admin whitelist, roster commands, webhook signature checks and duplicate events, the AI path with a fake model, and both demo scripts. GitHub Actions runs `ruff` and `pytest` on Python 3.11 and 3.12, runs the same tests against PostgreSQL 17 (set `TEST_DATABASE_URL` to do this locally), and builds the Docker image and checks `/health` on the running container.
+The 173 tests run offline in about a second, with no LINE account, keys, network, or database server: FAQ matching, opening hours (including overnight periods and closed dates), the full reply pipeline, handoff and notifiers, admin whitelist, roster commands, webhook signature checks and duplicate events, the AI path with a fake model, and both demo scripts. GitHub Actions runs `ruff` and `pytest` on Python 3.11 and 3.12, runs the same tests against PostgreSQL 17 (set `TEST_DATABASE_URL` to do this locally), and builds the Docker image and checks `/health` on the running container.
 
 Tech stack: Python 3.11+, Flask, line-bot-sdk v3, PyYAML, gunicorn, SQLite or PostgreSQL (psycopg2).
 
