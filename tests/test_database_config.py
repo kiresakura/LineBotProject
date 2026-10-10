@@ -1,10 +1,10 @@
 """DATABASE_URL 讀取時機的回歸測試"""
 
-import database as db
+from support_bot import database as db
 
 
 def test_get_connection_reads_database_url_at_call_time(monkeypatch):
-    # app.py 在 import database 之後才執行 load_dotenv()，
+    # web.py 在 import database 之後才執行 load_dotenv()，
     # 所以必須在連線當下讀環境變數，.env 裡的 DATABASE_URL 才會生效
     captured = {}
 

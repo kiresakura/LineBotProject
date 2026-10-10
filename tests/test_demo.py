@@ -4,8 +4,8 @@ from pathlib import Path
 
 import pytest
 
-import database
-import demo
+from support_bot import database
+from support_bot import demo
 
 EXAMPLE_CHAT = Path(__file__).resolve().parent.parent / 'examples' / 'demo-chat.txt'
 

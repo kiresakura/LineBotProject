@@ -3,8 +3,8 @@
 回傳 LINE Message 物件（支援 Flex Message 和 Quick Reply）
 """
 
-import database as db
-from messages import (
+from support_bot import database as db
+from support_bot.roster_messages import (
     create_menu_message,
     create_roster_message,
     create_roster_text_message,
@@ -251,7 +251,7 @@ def handle_set_admin(line_user_id: str, args: str):
                 ]
             )
 
-        from database import get_db_cursor
+        from support_bot.database import get_db_cursor
         with get_db_cursor() as cursor:
             cursor.execute('''
                 UPDATE members

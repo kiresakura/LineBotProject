@@ -2,8 +2,8 @@
 本機示範模式：不需要 LINE 帳號、金鑰或 PostgreSQL，在終端機模擬群組對話
 
 用法：
-    python demo.py                           # 互動模式，Ctrl-D 結束
-    python demo.py examples/demo-chat.txt    # 重播對話腳本
+    python -m support_bot.demo                              # 互動模式，Ctrl-D 結束
+    python -m support_bot.demo examples/demo-chat.txt       # 重播對話腳本
 
 每行格式為「名稱: 訊息」，例如「小明: /登記 光之勇者」；省略「名稱:」時沿用上一位發言者。
 資料存在本機 SQLite，預設為暫存檔，結束後刪除；加上 --db 路徑可保留資料。
@@ -14,8 +14,8 @@ import os
 import sys
 import tempfile
 
-import database as db
-from handlers import handle_text
+from support_bot import database as db
+from support_bot.roster import handle_text
 
 DEFAULT_SPEAKER = '小明'
 

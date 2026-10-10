@@ -1,6 +1,6 @@
 import pytest
 
-import database
+from support_bot import database
 
 
 @pytest.fixture

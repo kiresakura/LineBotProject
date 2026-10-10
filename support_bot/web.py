@@ -15,8 +15,8 @@ from linebot.v3.webhooks import (
 )
 from linebot.v3.exceptions import InvalidSignatureError
 
-import database as db
-from handlers import handle_text
+from support_bot import database as db
+from support_bot.roster import handle_text
 
 # 載入環境變數
 load_dotenv()

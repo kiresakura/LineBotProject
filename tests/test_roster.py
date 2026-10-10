@@ -3,7 +3,7 @@
 import pytest
 from linebot.v3.messaging import FlexMessage, TextMessage
 
-from handlers import (
+from support_bot.roster import (
     handle_text,
     parse_command,
     parse_register_for_args,

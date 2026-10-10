@@ -38,8 +38,8 @@ EMPTY_BODY = json.dumps({'destination': 'Ubot', 'events': []})
 
 
 def import_app():
-    sys.modules.pop('app', None)
-    return importlib.import_module('app')
+    sys.modules.pop('support_bot.web', None)
+    return importlib.import_module('support_bot.web')
 
 
 @pytest.fixture
@@ -49,7 +49,7 @@ def app_module(monkeypatch, tmp_path):
     monkeypatch.setenv('DATABASE_URL', f'sqlite:///{tmp_path / "roster.db"}')
     module = import_app()
     yield module
-    sys.modules.pop('app', None)
+    sys.modules.pop('support_bot.web', None)
 
 
 @pytest.fixture
