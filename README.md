@@ -71,7 +71,7 @@ Notifications are a small interface: the default writes a log line (visible in y
 
 - Requests to `/callback` are rejected with HTTP 400 unless `X-Line-Signature` matches the HMAC-SHA256 of the body under your channel secret.
 - Each `webhookEventId` is processed once, so LINE redeliveries don't produce duplicate replies or duplicate handoffs; if processing fails, the event is released so a redelivery can retry it.
-- All secrets and settings come from environment variables; the app refuses to start when the LINE credentials are missing or a setting is invalid.
+- All secrets and settings come from environment variables; the app refuses to start when the LINE credentials are missing, a YAML file is invalid, or the notifier or AI settings are incomplete.
 - In group chats the bot only reacts to roster commands, so it never floods a group with FAQ answers or handoff messages.
 
 ## How a message is handled

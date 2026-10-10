@@ -71,7 +71,7 @@ python -m support_bot.demo
 
 - `/callback` 的 `X-Line-Signature` 必須等於以 channel secret 對內容計算的 HMAC-SHA256，否則回 HTTP 400。
 - 同一個 `webhookEventId` 只處理一次，LINE 重送時不會重複回覆或重複轉真人；處理失敗時會釋放紀錄，讓重送可以再試一次。
-- 金鑰與設定一律走環境變數；缺少 LINE 憑證或設定值錯誤時，程式拒絕啟動。
+- 金鑰與設定一律走環境變數；缺少 LINE 憑證、YAML 格式錯誤，或通知／AI 設定不完整時，程式拒絕啟動。
 - 在群組裡只回應名冊指令，不會用 FAQ 或轉真人訊息洗版。
 
 ## 訊息處理順序
