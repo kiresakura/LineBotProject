@@ -72,6 +72,11 @@ def parse_register_for_args(args: str):
     return line_name, parts[1], parts[2] in ADMIN_KEYWORDS
 
 
+def is_officer(line_user_id: str, admin_user_ids=frozenset()) -> bool:
+    """白名單管理員（ADMIN_USER_IDS）或名冊中的幹部"""
+    return line_user_id in admin_user_ids or bool(db.is_admin(line_user_id))
+
+
 def handle_register(line_user_id: str, line_display_name: str, args: str):
     """處理 /登記 指令"""
     if not args:
@@ -167,9 +172,9 @@ def handle_search(args: str):
     return create_search_result_message(query, results)
 
 
-def handle_roster(line_user_id: str, args: str):
+def handle_roster(line_user_id: str, args: str, admin_user_ids=frozenset()):
     """處理 /名冊 指令（僅限管理員）"""
-    if not db.is_admin(line_user_id):
+    if not is_officer(line_user_id, admin_user_ids):
         return create_error_message(
             "此指令僅限幹部使用",
             quick_actions=[
@@ -198,9 +203,9 @@ def handle_roster(line_user_id: str, args: str):
         )
 
 
-def handle_delete(line_user_id: str, args: str):
+def handle_delete(line_user_id: str, args: str, admin_user_ids=frozenset()):
     """處理 /刪除 指令（僅限管理員）"""
-    if not db.is_admin(line_user_id):
+    if not is_officer(line_user_id, admin_user_ids):
         return create_error_message(
             "此指令僅限管理員使用",
             quick_actions=[
@@ -237,11 +242,12 @@ def handle_delete(line_user_id: str, args: str):
         )
 
 
-def handle_set_admin(line_user_id: str, args: str):
+def handle_set_admin(line_user_id: str, args: str, admin_user_ids=frozenset()):
     """處理 /設定管理員 指令（僅限管理員）"""
     admin_count = db.get_admin_count()
 
-    if admin_count == 0:
+    # 設定了管理員白名單（ADMIN_USER_IDS）時不開放自行成為第一位幹部
+    if admin_count == 0 and not admin_user_ids:
         member = db.get_member_by_user_id(line_user_id)
         if not member:
             return create_error_message(
@@ -268,7 +274,7 @@ def handle_set_admin(line_user_id: str, args: str):
             ]
         )
 
-    if not db.is_admin(line_user_id):
+    if not is_officer(line_user_id, admin_user_ids):
         return create_error_message(
             "此指令僅限管理員使用",
             quick_actions=[
@@ -310,9 +316,9 @@ def handle_whoami(line_user_id: str, line_display_name: str):
     return create_profile_message(member, line_display_name, member is not None)
 
 
-def handle_register_for(line_user_id: str, args: str):
+def handle_register_for(line_user_id: str, args: str, admin_user_ids=frozenset()):
     """處理 /代登記 指令（僅限管理員）"""
-    if not db.is_admin(line_user_id):
+    if not is_officer(line_user_id, admin_user_ids):
         return create_error_message(
             "此指令僅限幹部使用",
             quick_actions=[
@@ -389,7 +395,7 @@ def handle_menu():
     return create_menu_message()
 
 
-def handle_text(line_user_id: str, line_display_name: str, text: str):
+def handle_text(line_user_id: str, line_display_name: str, text: str, admin_user_ids=frozenset()):
     """
     處理一則文字訊息（不呼叫 LINE API，Webhook 與本機示範共用）
     回傳: LINE Message 物件，如果不是指令則回傳 None
@@ -402,10 +408,10 @@ def handle_text(line_user_id: str, line_display_name: str, text: str):
     except Exception as e:
         print(f"同步/記錄用戶失敗: {e}")
 
-    return process_command(line_user_id, line_display_name, text)
+    return process_command(line_user_id, line_display_name, text, admin_user_ids)
 
 
-def process_command(line_user_id: str, line_display_name: str, text: str):
+def process_command(line_user_id: str, line_display_name: str, text: str, admin_user_ids=frozenset()):
     """
     處理使用者指令
     回傳: LINE Message 物件，如果不是指令則回傳 None
@@ -424,13 +430,13 @@ def process_command(line_user_id: str, line_display_name: str, text: str):
     elif command == '/查詢':
         return handle_search(args)
     elif command == '/名冊':
-        return handle_roster(line_user_id, args)
+        return handle_roster(line_user_id, args, admin_user_ids)
     elif command == '/刪除':
-        return handle_delete(line_user_id, args)
+        return handle_delete(line_user_id, args, admin_user_ids)
     elif command == '/設定管理員':
-        return handle_set_admin(line_user_id, args)
+        return handle_set_admin(line_user_id, args, admin_user_ids)
     elif command == '/代登記':
-        return handle_register_for(line_user_id, args)
+        return handle_register_for(line_user_id, args, admin_user_ids)
     elif command == '/我是誰':
         return handle_whoami(line_user_id, line_display_name)
     elif command in ['/說明', '/help', '/幫助']:

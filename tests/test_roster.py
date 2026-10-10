@@ -5,6 +5,7 @@ from linebot.v3.messaging import FlexMessage, TextMessage
 
 from support_bot.roster import (
     handle_text,
+    is_officer,
     parse_command,
     parse_register_for_args,
     parse_roster_args,
@@ -174,3 +175,31 @@ def test_handle_text_syncs_changed_display_name(db):
     handle_text('U1', '小明改名了', '早安')
 
     assert db.get_member_by_user_id('U1')['line_display_name'] == '小明改名了'
+
+
+def test_whitelisted_admin_can_use_officer_commands(db):
+    db.register_member('U1', '小明', '光之勇者')
+
+    reply = process_command('Uowner', '店長', '/名冊', admin_user_ids=frozenset({'Uowner'}))
+
+    assert reply.alt_text == '成員名冊 - 第 1/1 頁，共 1 人'
+    assert is_officer('Uowner', frozenset({'Uowner'}))
+    assert not is_officer('U1', frozenset({'Uowner'}))
+
+
+def test_whitelist_disables_first_officer_bootstrap(db):
+    process_command('U1', '小明', '/登記 光之勇者', admin_user_ids=frozenset({'Uowner'}))
+
+    reply = process_command('U1', '小明', '/設定管理員', admin_user_ids=frozenset({'Uowner'}))
+
+    assert reply.text == '❌ 此指令僅限管理員使用'
+    assert not db.is_admin('U1')
+
+
+def test_whitelisted_admin_can_appoint_officers(db):
+    db.register_member('U1', '小明', '光之勇者')
+
+    reply = process_command('Uowner', '店長', '/設定管理員 小明', admin_user_ids=frozenset({'Uowner'}))
+
+    assert reply.text.startswith('✅ 設定成功')
+    assert db.is_admin('U1')
