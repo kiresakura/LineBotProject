@@ -3,11 +3,14 @@
 import base64
 import hashlib
 import hmac
-import importlib
 import json
-import sys
 
 import pytest
+from linebot.v3.messaging import TextMessage
+
+from support_bot import web
+from support_bot.settings import Settings
+from support_bot.web import create_app
 
 CHANNEL_SECRET = 'test-channel-secret'
 
@@ -18,17 +21,20 @@ def sign(body: str, secret: str = CHANNEL_SECRET) -> str:
     return base64.b64encode(digest).decode('utf-8')
 
 
-def text_event_body(text: str, user_id: str = 'U1') -> str:
+def text_event_body(text: str, user_id: str = 'U1', event_id: str = '01TESTEVENT', source_type: str = 'user') -> str:
+    source = {'type': source_type, 'userId': user_id}
+    if source_type == 'group':
+        source['groupId'] = 'Cgroup'
     return json.dumps({
         'destination': 'Ubot',
         'events': [{
             'type': 'message',
             'mode': 'active',
             'timestamp': 1700000000000,
-            'webhookEventId': '01TESTEVENT',
+            'webhookEventId': event_id,
             'deliveryContext': {'isRedelivery': False},
             'replyToken': 'reply-token-1',
-            'source': {'type': 'group', 'groupId': 'Cgroup', 'userId': user_id},
+            'source': source,
             'message': {'id': '1', 'type': 'text', 'text': text, 'quoteToken': 'q1'},
         }],
     }, ensure_ascii=False)
@@ -37,92 +43,147 @@ def text_event_body(text: str, user_id: str = 'U1') -> str:
 EMPTY_BODY = json.dumps({'destination': 'Ubot', 'events': []})
 
 
-def import_app():
-    sys.modules.pop('support_bot.web', None)
-    return importlib.import_module('support_bot.web')
+class FakeLineApi:
+    """替身：固定顯示名稱，並收集原本要送出的回覆與推播"""
+
+    def __init__(self):
+        self.replies = []
+        self.pushes = []
+
+    def display_name(self, source):
+        return '小明'
+
+    def reply(self, reply_token, message):
+        self.replies.append((reply_token, message))
+
+    def push(self, user_id, message):
+        self.pushes.append((user_id, message))
+
+
+def make_settings(**overrides):
+    values = {'line_channel_secret': CHANNEL_SECRET, 'line_channel_access_token': 'test-access-token'}
+    values.update(overrides)
+    return Settings(**values)
 
 
 @pytest.fixture
-def app_module(monkeypatch, tmp_path):
+def line_api():
+    return FakeLineApi()
+
+
+@pytest.fixture
+def client(db, line_api):
+    return create_app(make_settings(roster_enabled=True), line_api).test_client()
+
+
+def post_callback(client, body, signature=None):
+    headers = {} if signature is None else {'X-Line-Signature': signature}
+    return client.post('/callback', data=body, headers=headers)
+
+
+@pytest.mark.parametrize('missing', ['line_channel_secret', 'line_channel_access_token'])
+def test_create_app_requires_line_credentials(db, missing):
+    with pytest.raises(ValueError, match='LINE_CHANNEL_SECRET'):
+        create_app(make_settings(**{missing: ''}), FakeLineApi())
+
+
+def test_create_app_reads_settings_from_environment(db, monkeypatch, line_api):
     monkeypatch.setenv('LINE_CHANNEL_SECRET', CHANNEL_SECRET)
     monkeypatch.setenv('LINE_CHANNEL_ACCESS_TOKEN', 'test-access-token')
-    monkeypatch.setenv('DATABASE_URL', f'sqlite:///{tmp_path / "roster.db"}')
-    module = import_app()
-    yield module
-    sys.modules.pop('support_bot.web', None)
+    client = create_app(line_api=line_api).test_client()
+    body = text_event_body('營業到幾點')
+
+    assert post_callback(client, body, sign(body)).status_code == 200
+    assert line_api.replies[0][1].text.startswith('週二至週日')
 
 
-@pytest.fixture
-def replies(app_module, monkeypatch):
-    """以替身取代 LINE API：固定顯示名稱，並收集原本要送出的回覆"""
-    sent = []
-    monkeypatch.setattr(app_module, 'get_user_display_name', lambda user_id, source: '小明')
-    monkeypatch.setattr(app_module, 'send_reply', lambda token, message: sent.append((token, message)))
-    return sent
-
-
-def post_callback(app_module, body, signature=None):
-    headers = {} if signature is None else {'X-Line-Signature': signature}
-    return app_module.app.test_client().post('/callback', data=body, headers=headers)
-
-
-def test_app_requires_line_credentials(monkeypatch):
-    monkeypatch.delenv('LINE_CHANNEL_SECRET', raising=False)
-    monkeypatch.delenv('LINE_CHANNEL_ACCESS_TOKEN', raising=False)
-    monkeypatch.setattr('dotenv.load_dotenv', lambda *args, **kwargs: False)
-
-    with pytest.raises(ValueError):
-        import_app()
-
-
-def test_health_check(app_module):
-    response = app_module.app.test_client().get('/health')
+def test_health_check(client):
+    response = client.get('/health')
 
     assert response.status_code == 200
     assert response.get_data(as_text=True) == 'OK'
 
 
-def test_callback_accepts_valid_signature(app_module):
-    assert post_callback(app_module, EMPTY_BODY, sign(EMPTY_BODY)).status_code == 200
+def test_callback_accepts_valid_signature(client):
+    assert post_callback(client, EMPTY_BODY, sign(EMPTY_BODY)).status_code == 200
 
 
-def test_callback_rejects_missing_signature(app_module):
-    assert post_callback(app_module, EMPTY_BODY).status_code == 400
+def test_callback_rejects_missing_signature(client):
+    assert post_callback(client, EMPTY_BODY).status_code == 400
 
 
-def test_callback_rejects_signature_from_another_secret(app_module):
+def test_callback_rejects_signature_from_another_secret(client):
     signature = sign(EMPTY_BODY, secret='someone-elses-secret')
 
-    assert post_callback(app_module, EMPTY_BODY, signature).status_code == 400
+    assert post_callback(client, EMPTY_BODY, signature).status_code == 400
 
 
-def test_callback_rejects_tampered_body(app_module, replies):
+def test_callback_rejects_tampered_body(client, line_api):
     original = text_event_body('/我是誰')
     tampered = text_event_body('/刪除 光之勇者')
 
-    response = post_callback(app_module, tampered, sign(original))
+    response = post_callback(client, tampered, sign(original))
 
     assert response.status_code == 400
-    assert replies == []
+    assert line_api.replies == []
 
 
-def test_signed_text_event_is_processed_and_replied(app_module, replies):
+def test_signed_faq_question_gets_answer(client, line_api):
+    body = text_event_body('可以帶毛小孩嗎？')
+
+    response = post_callback(client, body, sign(body))
+
+    assert response.status_code == 200
+    [(token, message)] = line_api.replies
+    assert token == 'reply-token-1'
+    assert message.text.startswith('歡迎！寵物')
+
+
+def test_signed_roster_command_is_processed(client, line_api, db):
     body = text_event_body('/登記 光之勇者')
 
-    response = post_callback(app_module, body, sign(body))
+    post_callback(client, body, sign(body))
+
+    assert line_api.replies[0][1].text.startswith('✅ 登記成功！')
+    assert db.get_member_by_user_id('U1')['game_name'] == '光之勇者'
+
+
+def test_group_chat_without_command_gets_no_reply(client, line_api, db):
+    body = text_event_body('大家好', user_id='U2', source_type='group')
+
+    response = post_callback(client, body, sign(body))
 
     assert response.status_code == 200
-    [(token, message)] = replies
-    assert token == 'reply-token-1'
-    assert message.text.startswith('✅ 登記成功！')
-    assert app_module.db.get_member_by_user_id('U1')['game_name'] == '光之勇者'
+    assert line_api.replies == []
+    assert db.register_by_admin('小明')['success'] is True
 
 
-def test_plain_chat_is_recorded_without_reply(app_module, replies):
-    body = text_event_body('大家好', user_id='U2')
+def test_line_push_notifier_uses_push_api(db, line_api):
+    settings = make_settings(handoff_notifier='line_push', admin_user_ids=frozenset({'Uadmin'}))
+    client = create_app(settings, line_api).test_client()
+    body = text_event_body('可以包場嗎')
 
-    response = post_callback(app_module, body, sign(body))
+    post_callback(client, body, sign(body))
 
-    assert response.status_code == 200
-    assert replies == []
-    assert app_module.db.register_by_admin('小明')['success'] is True
+    [(user_id, message)] = line_api.pushes
+    assert user_id == 'Uadmin'
+    assert message.text.startswith('🔔 轉真人 #1｜小明：可以包場嗎')
+
+
+def test_line_api_push_builds_push_message_request(monkeypatch):
+    sent = []
+
+    class FakeMessagingApi:
+        def __init__(self, api_client):
+            pass
+
+        def push_message(self, push_message_request):
+            sent.append(push_message_request)
+
+    monkeypatch.setattr(web, 'MessagingApi', FakeMessagingApi)
+
+    web.LineApi('token').push('Uadmin', TextMessage(text='hi'))
+
+    [request] = sent
+    assert request.to == 'Uadmin'
+    assert request.messages[0].text == 'hi'
