@@ -292,3 +292,18 @@ def test_create_app_loads_dotenv_before_reading_settings(db, ignore_local_dotenv
     create_app(make_settings(), line_api)
 
     assert len(ignore_local_dotenv) == 1
+
+
+def test_main_reads_port_after_loading_dotenv(db, monkeypatch):
+    # PORT 寫在 .env 時，python -m support_bot.web 也要用它
+    monkeypatch.setenv('LINE_CHANNEL_SECRET', CHANNEL_SECRET)
+    monkeypatch.setenv('LINE_CHANNEL_ACCESS_TOKEN', 'test-access-token')
+    monkeypatch.delenv('PORT', raising=False)
+    monkeypatch.setattr(web, 'load_dotenv', lambda *args, **kwargs: monkeypatch.setenv('PORT', '5123'))
+    monkeypatch.setattr(web, 'LineApi', lambda access_token: FakeLineApi())
+    ran = {}
+    monkeypatch.setattr(web.Flask, 'run', lambda self, host, port, debug: ran.update(host=host, port=port))
+
+    web.main()
+
+    assert ran == {'host': '0.0.0.0', 'port': 5123}

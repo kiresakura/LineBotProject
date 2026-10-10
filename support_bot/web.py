@@ -123,6 +123,11 @@ def create_app(settings: Settings = None, line_api=None) -> Flask:
     return app
 
 
+def main():
+    """本機啟動：python -m support_bot.web（先由 create_app() 讀 .env，.env 裡的 PORT 才會生效）"""
+    app = create_app()
+    app.run(host='0.0.0.0', port=int(os.environ.get('PORT', 5000)), debug=False)
+
+
 if __name__ == '__main__':
-    port = int(os.environ.get('PORT', 5000))
-    create_app().run(host='0.0.0.0', port=port, debug=False)
+    main()
