@@ -23,3 +23,17 @@ jobs:
       - run: pip install -r requirements-dev.txt
       - run: ruff check .
       - run: pytest
+
+  docker:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - name: Validate docker compose file
+        run: cp .env.example .env && docker compose config --quiet
+      - run: docker build -t support-bot .
+      - name: Smoke test the container
+        run: |
+          docker run -d --name support-bot -p 8000:8000 \
+            -e LINE_CHANNEL_SECRET=ci-secret -e LINE_CHANNEL_ACCESS_TOKEN=ci-token support-bot
+          curl -fsS --retry 10 --retry-connrefused --retry-delay 1 http://localhost:8000/health
+          docker logs support-bot
