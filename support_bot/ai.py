@@ -35,7 +35,8 @@ class OpenAICompatibleClient:
         headers = {'Content-Type': 'application/json'}
         if self.api_key:
             headers['Authorization'] = f'Bearer {self.api_key}'
-        payload = json.dumps({'model': self.model, 'messages': messages, 'temperature': 0}).encode('utf-8')
+        # 不指定 temperature 等取樣參數：有些模型只接受預設值
+        payload = json.dumps({'model': self.model, 'messages': messages}).encode('utf-8')
         request = urllib.request.Request(self.url, data=payload, headers=headers, method='POST')
         with urllib.request.urlopen(request, timeout=self.timeout) as response:
             data = json.load(response)
@@ -62,6 +63,9 @@ class AiAnswerer:
             content = self.client.complete(self.build_messages(question))
         except Exception:
             logger.exception('AI 回答失敗，改轉真人')
+            return None
+        if not isinstance(content, str):
+            logger.warning('AI 沒有回傳文字內容，改轉真人')
             return None
 
         cited_ids = list(dict.fromkeys(SOURCE_PATTERN.findall(content)))

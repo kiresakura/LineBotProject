@@ -72,6 +72,11 @@ def test_model_errors_fall_back_to_handoff(faq):
     assert AiAnswerer(FakeModel(error=TimeoutError('timeout')), faq).answer('可以包場嗎') is None
 
 
+def test_empty_model_content_falls_back_to_handoff(faq):
+    # 有些 API 在拒答或只回傳工具呼叫時，content 會是 null
+    assert AiAnswerer(FakeModel(content=None), faq).answer('可以包場嗎') is None
+
+
 def test_bot_uses_ai_after_faq_and_before_handoff(db):
     bot = build_bot(Settings(ai_enabled=True, ai_model='fake-model'), clock=lambda: OPEN)
     model = FakeModel('寵物請使用牽繩。[source:pets]')
@@ -114,7 +119,8 @@ def test_client_posts_chat_completion_request(monkeypatch):
     assert captured['url'] == 'https://llm.example.com/v1/chat/completions'
     assert captured['headers']['Authorization'] == 'Bearer test-key'
     assert captured['timeout'] == 5
-    assert captured['body'] == {'model': 'test-model', 'messages': [{'role': 'user', 'content': '你好'}], 'temperature': 0}
+    # 不指定 temperature 等取樣參數：有些模型只接受預設值，指定了會回 400
+    assert captured['body'] == {'model': 'test-model', 'messages': [{'role': 'user', 'content': '你好'}]}
 
 
 def test_client_omits_authorization_without_key(monkeypatch):
