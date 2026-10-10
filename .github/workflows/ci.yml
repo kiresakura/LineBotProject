@@ -63,5 +63,7 @@ jobs:
         run: |
           docker run -d --name support-bot -p 8000:8000 \
             -e LINE_CHANNEL_SECRET=ci-secret -e LINE_CHANNEL_ACCESS_TOKEN=ci-token support-bot
-          curl -fsS --retry 10 --retry-connrefused --retry-delay 1 http://localhost:8000/health
-          docker logs support-bot
+          curl -fsS --retry 15 --retry-all-errors --retry-delay 1 http://localhost:8000/health
+      - name: Container logs
+        if: always()
+        run: docker logs support-bot
