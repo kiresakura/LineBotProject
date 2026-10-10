@@ -161,7 +161,7 @@ ruff check .
 pytest
 ```
 
-The 159 tests run offline in about a second, with no LINE account, keys, network, or database server: FAQ matching, opening hours (including overnight periods and closed dates), the full reply pipeline, handoff and notifiers, admin whitelist, roster commands, webhook signature checks and duplicate events, the AI path with a fake model, and both demo scripts. GitHub Actions runs `ruff` and `pytest` on Python 3.11 and 3.12, runs the same tests against PostgreSQL 17 (set `TEST_DATABASE_URL` to do this locally), and builds the Docker image and checks `/health` on the running container.
+The 160 tests run offline in about a second, with no LINE account, keys, network, or database server: FAQ matching, opening hours (including overnight periods and closed dates), the full reply pipeline, handoff and notifiers, admin whitelist, roster commands, webhook signature checks and duplicate events, the AI path with a fake model, and both demo scripts. GitHub Actions runs `ruff` and `pytest` on Python 3.11 and 3.12, runs the same tests against PostgreSQL 17 (set `TEST_DATABASE_URL` to do this locally), and builds the Docker image and checks `/health` on the running container.
 
 Tech stack: Python 3.11+, Flask, line-bot-sdk v3, PyYAML, gunicorn, SQLite or PostgreSQL (psycopg2).
 
