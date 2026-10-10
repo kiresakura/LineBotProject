@@ -161,7 +161,7 @@ ruff check .
 pytest
 ```
 
-159 個測試約一秒跑完，不需要 LINE 帳號、金鑰、網路或資料庫伺服器：FAQ 比對、營業時間（含跨午夜與公休日）、完整處理流程、轉真人與通知管道、管理員白名單、名冊指令、Webhook 驗簽與重送事件、以假模型測 AI 流程，以及兩份示範腳本。GitHub Actions 在 Python 3.11 與 3.12 執行 `ruff` 與 `pytest`，再建置 Docker 映像並檢查執行中容器的 `/health`。
+159 個測試約一秒跑完，不需要 LINE 帳號、金鑰、網路或資料庫伺服器：FAQ 比對、營業時間（含跨午夜與公休日）、完整處理流程、轉真人與通知管道、管理員白名單、名冊指令、Webhook 驗簽與重送事件、以假模型測 AI 流程，以及兩份示範腳本。GitHub Actions 在 Python 3.11 與 3.12 執行 `ruff` 與 `pytest`，也對 PostgreSQL 17 跑同一套測試（本機設定 `TEST_DATABASE_URL` 即可），並建置 Docker 映像、檢查執行中容器的 `/health`。
 
 技術棧：Python 3.11+、Flask、line-bot-sdk v3、PyYAML、gunicorn、SQLite 或 PostgreSQL（psycopg2）。
 
