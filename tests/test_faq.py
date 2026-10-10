@@ -42,6 +42,8 @@ def test_keyword_match(faq, text, expected):
     ('附近好泊車嗎', 'parking'),
     ('想預約週六下午', 'reservation'),
     ('有無線網路嗎', 'wifi'),
+    ('店裡可以上網嗎', 'wifi'),
+    ('可以網路預約嗎', 'reservation'),   # 「網路」不當成 Wi-Fi 的相似詞，否則會蓋過「預約」
 ])
 def test_synonyms_map_to_keywords(faq, text, expected):
     assert matched_id(faq, text) == expected
