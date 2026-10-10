@@ -4,6 +4,7 @@ import base64
 import hashlib
 import hmac
 import json
+import time
 
 import pytest
 from linebot.v3.messaging import TextMessage
@@ -216,24 +217,66 @@ def test_different_events_are_both_processed(client, line_api):
     assert len(line_api.replies) == 2
 
 
-def test_failed_event_can_be_redelivered(db, line_api):
-    class FlakyLineApi(FakeLineApi):
-        fail = True
+class FlakyLineApi(FakeLineApi):
+    """第一次呼叫指定的方法時丟出例外，之後恢復正常"""
 
-        def reply(self, reply_token, message):
-            if self.fail:
-                raise ConnectionError('LINE API 暫時無法連線')
-            super().reply(reply_token, message)
+    def __init__(self, failing_method, error=ConnectionError('LINE API 暫時無法連線')):
+        super().__init__()
+        self.failing_method = failing_method
+        self.error = error
 
-    flaky = FlakyLineApi()
+    def _maybe_fail(self, method):
+        if self.failing_method == method:
+            self.failing_method = None
+            raise self.error
+
+    def display_name(self, source):
+        self._maybe_fail('display_name')
+        return super().display_name(source)
+
+    def reply(self, reply_token, message):
+        self._maybe_fail('reply')
+        super().reply(reply_token, message)
+
+
+def flaky_client(flaky):
     client = create_app(make_settings(), flaky).test_client()
     client.application.config['PROPAGATE_EXCEPTIONS'] = False
+    return client
+
+
+def test_failure_before_replying_lets_redelivery_retry(db):
+    flaky = FlakyLineApi('display_name')
+    client = flaky_client(flaky)
     body = text_event_body('營業到幾點', event_id='01FLAKY')
 
     assert post_callback(client, body, sign(body)).status_code == 500
-    flaky.fail = False
     assert post_callback(client, body, sign(body)).status_code == 200
     assert len(flaky.replies) == 1
+
+
+def test_reply_failure_does_not_repeat_handoff_on_redelivery(db):
+    flaky = FlakyLineApi('reply')
+    client = flaky_client(flaky)
+    body = text_event_body('週末可以包場嗎？', event_id='01REPLYFAIL')
+
+    assert post_callback(client, body, sign(body)).status_code == 500
+    assert post_callback(client, body, sign(body)).status_code == 200
+
+    assert len(db.list_open_handoffs()) == 1
+    assert flaky.replies == []
+
+
+def test_worker_timeout_releases_event(db):
+    # gunicorn 逾時會在 worker 裡丟出 SystemExit，不是 Exception
+    flaky = FlakyLineApi('display_name', error=SystemExit(1))
+    client = flaky_client(flaky)
+    body = text_event_body('營業到幾點', event_id='01TIMEOUT')
+
+    with pytest.raises(SystemExit):
+        post_callback(client, body, sign(body))
+
+    assert db.mark_event_processed('01TIMEOUT', now=int(time.time())) is True
 
 
 def test_mark_event_processed_prunes_old_records(db):

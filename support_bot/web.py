@@ -105,16 +105,20 @@ def create_app(settings: Settings = None, line_api=None) -> Flask:
             logger.info('略過已處理的事件 %s', event.webhook_event_id)
             return
 
+        # 產生回覆（含轉真人）途中失敗才釋放事件，讓 LINE 重送時再處理一次；
+        # 用 finally 讓 gunicorn 逾時（SystemExit）也會釋放。回覆已產生後才失敗則不釋放，避免重複轉真人
+        handled = False
         try:
             source = event.source
             display_name = line_api.display_name(source)
             reply_message = bot.reply(source.user_id, display_name, event.message.text, chat_type=source.type)
+            handled = True
+        finally:
+            if not handled:
+                db.forget_event(event.webhook_event_id)
 
-            if reply_message:
-                line_api.reply(event.reply_token, reply_message)
-        except Exception:
-            db.forget_event(event.webhook_event_id)
-            raise
+        if reply_message:
+            line_api.reply(event.reply_token, reply_message)
 
     return app
 
