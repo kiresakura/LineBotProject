@@ -66,6 +66,14 @@ def make_settings(**overrides):
     return Settings(**values)
 
 
+@pytest.fixture(autouse=True)
+def ignore_local_dotenv(monkeypatch):
+    """create_app() 會讀 .env；測試不受開發者本機 .env 影響（例如其中開了 AI 而打到網路）"""
+    calls = []
+    monkeypatch.setattr(web, 'load_dotenv', lambda *args, **kwargs: calls.append(args) or False)
+    return calls
+
+
 @pytest.fixture
 def line_api():
     return FakeLineApi()
@@ -235,3 +243,9 @@ def test_mark_event_processed_prunes_old_records(db):
     # 超過保留期限的紀錄會被清掉
     assert db.mark_event_processed('new', now=1_000 + 8 * 24 * 3600) is True
     assert db.mark_event_processed('old', now=1_000 + 8 * 24 * 3600) is True
+
+
+def test_create_app_loads_dotenv_before_reading_settings(db, ignore_local_dotenv, line_api):
+    create_app(make_settings(), line_api)
+
+    assert len(ignore_local_dotenv) == 1
