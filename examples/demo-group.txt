@@ -1,5 +1,7 @@
-# 示範對話腳本：python demo.py examples/demo-chat.txt
-# 每行「名稱: 訊息」，# 開頭為註解
+# 群組名冊模組的示範：python -m support_bot.demo examples/demo-group.txt
+# 每行「名稱: 訊息」，# 開頭為註解；@group 代表以下是群組聊天
+
+@group
 
 # 成員登記自己的遊戲角色
 小明: /登記 光之勇者
