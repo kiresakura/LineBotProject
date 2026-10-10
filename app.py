@@ -16,7 +16,7 @@ from linebot.v3.webhooks import (
 from linebot.v3.exceptions import InvalidSignatureError
 
 import database as db
-from handlers import process_command
+from handlers import handle_text
 
 # 載入環境變數
 load_dotenv()
@@ -63,26 +63,23 @@ def handle_message(event: MessageEvent):
     # 取得使用者顯示名稱
     display_name = get_user_display_name(user_id, event.source)
 
-    # 自動同步 LINE 顯示名稱（如果用戶已登記且名稱有變更）
-    # 並記錄用戶資訊（供代登記使用）
-    try:
-        db.sync_display_name(user_id, display_name)
-        db.record_pending_user(user_id, display_name)
-    except Exception as e:
-        print(f"同步/記錄用戶失敗: {e}")
-
-    # 處理指令
-    reply_message = process_command(user_id, display_name, text)
+    # 處理指令（含同步顯示名稱、記錄發言者）
+    reply_message = handle_text(user_id, display_name, text)
 
     if reply_message:
-        with ApiClient(configuration) as api_client:
-            line_bot_api = MessagingApi(api_client)
-            line_bot_api.reply_message(
-                ReplyMessageRequest(
-                    reply_token=event.reply_token,
-                    messages=[reply_message]
-                )
+        send_reply(event.reply_token, reply_message)
+
+
+def send_reply(reply_token: str, message):
+    """透過 LINE Messaging API 回覆訊息"""
+    with ApiClient(configuration) as api_client:
+        line_bot_api = MessagingApi(api_client)
+        line_bot_api.reply_message(
+            ReplyMessageRequest(
+                reply_token=reply_token,
+                messages=[message]
             )
+        )
 
 
 def get_user_display_name(user_id: str, source) -> str:

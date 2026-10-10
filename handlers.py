@@ -17,6 +17,60 @@ from messages import (
 )
 from linebot.v3.messaging import TextMessage
 
+ADMIN_KEYWORDS = ['幹部', '管理員', 'admin']
+
+
+def parse_command(text: str):
+    """
+    拆出指令與參數
+    回傳: (小寫指令, 參數字串)；不是指令（不以 / 開頭）時回傳 None
+    """
+    text = text.strip()
+
+    if not text.startswith('/'):
+        return None
+
+    parts = text.split(maxsplit=1)
+    return parts[0].lower(), (parts[1] if len(parts) > 1 else "")
+
+
+def parse_roster_args(args: str):
+    """
+    解析 /名冊 的參數
+    回傳: (是否顯示全部, 頁碼)；無法解析的頁碼視為第 1 頁
+    """
+    args = args.strip()
+    if args in ['全部', '所有', 'all']:
+        return True, 1
+    try:
+        return False, int(args)
+    except ValueError:
+        return False, 1
+
+
+def parse_register_for_args(args: str):
+    """
+    解析 /代登記 的參數
+    回傳: (LINE 名稱, 遊戲名稱或 None, 是否設為幹部)；沒有參數時回傳 None
+    遊戲名稱為 None 時，資料層會改用 LINE 名稱
+    """
+    parts = args.split()
+    if not parts:
+        return None
+
+    line_name = parts[0]
+    if len(parts) == 1:
+        # /代登記 小明 → 用 LINE 名稱作為遊戲名稱
+        return line_name, None, False
+    if len(parts) == 2:
+        if parts[1] in ADMIN_KEYWORDS:
+            # /代登記 小明 幹部 → 用 LINE 名稱作為遊戲名稱，設為幹部
+            return line_name, None, True
+        # /代登記 小明 勇者123
+        return line_name, parts[1], False
+    # /代登記 小明 勇者123 幹部
+    return line_name, parts[1], parts[2] in ADMIN_KEYWORDS
+
 
 def handle_register(line_user_id: str, line_display_name: str, args: str):
     """處理 /登記 指令"""
@@ -124,18 +178,7 @@ def handle_roster(line_user_id: str, args: str):
             ]
         )
 
-    show_all = False
-    page = 1
-
-    if args:
-        args = args.strip()
-        if args in ['全部', '所有', 'all']:
-            show_all = True
-        else:
-            try:
-                page = int(args)
-            except ValueError:
-                pass
+    show_all, page = parse_roster_args(args)
 
     if show_all:
         # 取得所有成員，使用純文字訊息避免 Flex Message 大小限制
@@ -288,8 +331,8 @@ def handle_register_for(line_user_id: str, args: str):
             ]
         )
 
-    parts = args.strip().split()
-    if len(parts) < 1:
+    parsed = parse_register_for_args(args)
+    if parsed is None:
         return create_error_message(
             "請輸入 LINE 名稱",
             quick_actions=[
@@ -297,27 +340,7 @@ def handle_register_for(line_user_id: str, args: str):
             ]
         )
 
-    line_name = parts[0]
-
-    # 判斷格式
-    if len(parts) == 1:
-        # /代登記 小明 → 用 LINE 名稱作為遊戲名稱
-        game_name = None  # 會在 db 函數中用 LINE 名稱
-        set_as_admin = False
-    elif len(parts) == 2:
-        if parts[1] in ['幹部', '管理員', 'admin']:
-            # /代登記 小明 幹部 → 用 LINE 名稱作為遊戲名稱，設為幹部
-            game_name = None
-            set_as_admin = True
-        else:
-            # /代登記 小明 勇者123
-            game_name = parts[1]
-            set_as_admin = False
-    else:
-        # /代登記 小明 勇者123 幹部
-        game_name = parts[1]
-        set_as_admin = parts[2] in ['幹部', '管理員', 'admin']
-
+    line_name, game_name, set_as_admin = parsed
     result = db.register_by_admin(line_name, game_name, set_as_admin)
 
     if result['success']:
@@ -366,20 +389,32 @@ def handle_menu():
     return create_menu_message()
 
 
+def handle_text(line_user_id: str, line_display_name: str, text: str):
+    """
+    處理一則文字訊息（不呼叫 LINE API，Webhook 與本機示範共用）
+    回傳: LINE Message 物件，如果不是指令則回傳 None
+    """
+    # 自動同步 LINE 顯示名稱（如果用戶已登記且名稱有變更）
+    # 並記錄用戶資訊（供代登記使用）
+    try:
+        db.sync_display_name(line_user_id, line_display_name)
+        db.record_pending_user(line_user_id, line_display_name)
+    except Exception as e:
+        print(f"同步/記錄用戶失敗: {e}")
+
+    return process_command(line_user_id, line_display_name, text)
+
+
 def process_command(line_user_id: str, line_display_name: str, text: str):
     """
     處理使用者指令
     回傳: LINE Message 物件，如果不是指令則回傳 None
     """
-    text = text.strip()
-
-    if not text.startswith('/'):
+    parsed = parse_command(text)
+    if parsed is None:
         return None
 
-    # 分離指令和參數
-    parts = text.split(maxsplit=1)
-    command = parts[0].lower()
-    args = parts[1] if len(parts) > 1 else ""
+    command, args = parsed
 
     # 指令路由
     if command == '/登記':
