@@ -7,6 +7,7 @@ LINE Webhook 伺服器：驗證 X-Line-Signature，把文字訊息交給 Support
 
 import logging
 import os
+import time
 
 from dotenv import load_dotenv
 from flask import Flask, abort, request
@@ -99,13 +100,21 @@ def create_app(settings: Settings = None, line_api=None) -> Flask:
 
     @handler.add(MessageEvent, message=TextMessageContent)
     def handle_message(event: MessageEvent):
-        """處理文字訊息"""
-        source = event.source
-        display_name = line_api.display_name(source)
-        reply_message = bot.reply(source.user_id, display_name, event.message.text, chat_type=source.type)
+        """處理文字訊息；同一個 webhookEventId 只處理一次（LINE 重送時不重複回覆、不重複轉真人）"""
+        if not db.mark_event_processed(event.webhook_event_id, int(time.time())):
+            logger.info('略過已處理的事件 %s', event.webhook_event_id)
+            return
 
-        if reply_message:
-            line_api.reply(event.reply_token, reply_message)
+        try:
+            source = event.source
+            display_name = line_api.display_name(source)
+            reply_message = bot.reply(source.user_id, display_name, event.message.text, chat_type=source.type)
+
+            if reply_message:
+                line_api.reply(event.reply_token, reply_message)
+        except Exception:
+            db.forget_event(event.webhook_event_id)
+            raise
 
     return app
 

@@ -115,6 +115,14 @@ def init_db():
                 created_at VARCHAR(16) NOT NULL
             )
         ''')
+
+        # 建立 processed_events 表（已處理的 webhookEventId，用來忽略重送的事件）
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS processed_events (
+                event_id VARCHAR(64) PRIMARY KEY,
+                received_at BIGINT NOT NULL
+            )
+        ''')
     print("資料庫初始化完成")
 
 
@@ -534,3 +542,25 @@ def resolve_handoff(request_id: int) -> bool:
             (request_id,)
         )
         return cursor.rowcount == 1
+
+
+def mark_event_processed(event_id: str, now: int, keep_seconds: int = 7 * 24 * 3600) -> bool:
+    """
+    記錄已處理的 webhookEventId（同一個事件只處理一次）
+    now: 目前的 Unix 時間（秒）；超過 keep_seconds 的舊紀錄順便清掉
+    回傳: 第一次看到這個事件時為 True，重送的事件為 False
+    """
+    with get_db_cursor() as cursor:
+        cursor.execute('DELETE FROM processed_events WHERE received_at < %s', (now - keep_seconds,))
+        cursor.execute('''
+            INSERT INTO processed_events (event_id, received_at)
+            VALUES (%s, %s)
+            ON CONFLICT (event_id) DO NOTHING
+        ''', (event_id, now))
+        return cursor.rowcount == 1
+
+
+def forget_event(event_id: str):
+    """處理失敗時移除紀錄，讓 LINE 重送的同一事件可以再處理一次"""
+    with get_db_cursor() as cursor:
+        cursor.execute('DELETE FROM processed_events WHERE event_id = %s', (event_id,))

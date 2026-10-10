@@ -187,3 +187,51 @@ def test_line_api_push_builds_push_message_request(monkeypatch):
     [request] = sent
     assert request.to == 'Uadmin'
     assert request.messages[0].text == 'hi'
+
+
+def test_redelivered_event_is_processed_once(client, line_api, db):
+    body = text_event_body('週末可以包場嗎？', event_id='01SAMEEVENT')
+
+    first = post_callback(client, body, sign(body))
+    second = post_callback(client, body, sign(body))
+
+    assert (first.status_code, second.status_code) == (200, 200)
+    assert len(line_api.replies) == 1
+    assert len(db.list_open_handoffs()) == 1
+
+
+def test_different_events_are_both_processed(client, line_api):
+    for event_id in ['01EVENTA', '01EVENTB']:
+        body = text_event_body('營業到幾點', event_id=event_id)
+        post_callback(client, body, sign(body))
+
+    assert len(line_api.replies) == 2
+
+
+def test_failed_event_can_be_redelivered(db, line_api):
+    class FlakyLineApi(FakeLineApi):
+        fail = True
+
+        def reply(self, reply_token, message):
+            if self.fail:
+                raise ConnectionError('LINE API 暫時無法連線')
+            super().reply(reply_token, message)
+
+    flaky = FlakyLineApi()
+    client = create_app(make_settings(), flaky).test_client()
+    client.application.config['PROPAGATE_EXCEPTIONS'] = False
+    body = text_event_body('營業到幾點', event_id='01FLAKY')
+
+    assert post_callback(client, body, sign(body)).status_code == 500
+    flaky.fail = False
+    assert post_callback(client, body, sign(body)).status_code == 200
+    assert len(flaky.replies) == 1
+
+
+def test_mark_event_processed_prunes_old_records(db):
+    assert db.mark_event_processed('old', now=1_000) is True
+    assert db.mark_event_processed('old', now=2_000) is False
+
+    # 超過保留期限的紀錄會被清掉
+    assert db.mark_event_processed('new', now=1_000 + 8 * 24 * 3600) is True
+    assert db.mark_event_processed('old', now=1_000 + 8 * 24 * 3600) is True
